@@ -1,0 +1,28 @@
+# Evaluation Report
+
+- Cases evaluated: 18
+- Decision accuracy: **100.0%**
+- Citation validation pass rate: **100.0%**
+- Retrieval evidence hit rate: **100.0%**
+- Required NEEDS_REVIEW cases all abstained: **True**
+
+| Case | Expected | Actual | Correct | Confidence | Validation | Retrieval hit |
+|---|---|---|---|---|---|---|
+| PUB-001 | ADMISSIBLE_WITH_LIMITS | ADMISSIBLE_WITH_LIMITS | ✅ | 0.80 | PASS | 100% |
+| PUB-002 | NOT_ADMISSIBLE | NOT_ADMISSIBLE | ✅ | 0.85 | PASS | 100% |
+| PUB-003 | NOT_ADMISSIBLE | NOT_ADMISSIBLE | ✅ | 0.85 | PASS | 100% |
+| PUB-004 | ADMISSIBLE_WITH_LIMITS | ADMISSIBLE_WITH_LIMITS | ✅ | 0.80 | PASS | 100% |
+| PUB-005 | ADMISSIBLE | ADMISSIBLE | ✅ | 0.85 | PASS | 100% |
+| PUB-006 | NEEDS_REVIEW | NEEDS_REVIEW | ✅ | 0.40 | PASS | 100% |
+| PUB-007 | ADMISSIBLE_WITH_LIMITS | ADMISSIBLE_WITH_LIMITS | ✅ | 0.80 | PASS | 100% |
+| PUB-008 | NOT_ADMISSIBLE | NOT_ADMISSIBLE | ✅ | 0.85 | PASS | 100% |
+| PUB-009 | ADMISSIBLE | ADMISSIBLE | ✅ | 0.85 | PASS | 100% |
+| PUB-010 | ADMISSIBLE | ADMISSIBLE | ✅ | 0.85 | PASS | 100% |
+| PUB-011 | NEEDS_REVIEW | NEEDS_REVIEW | ✅ | 0.37 | PASS | 100% |
+| PUB-012 | NEEDS_REVIEW | NEEDS_REVIEW | ✅ | 0.37 | PASS | 100% |
+| CUST-001 | NOT_ADMISSIBLE | NOT_ADMISSIBLE | ✅ | 0.85 | PASS | 100% |
+| CUST-002 | ADMISSIBLE | ADMISSIBLE | ✅ | 0.85 | PASS | 100% |
+| CUST-003 | PARTIALLY_ADMISSIBLE | PARTIALLY_ADMISSIBLE | ✅ | 0.75 | PASS | 100% |
+| CUST-004 | ADMISSIBLE_WITH_LIMITS | ADMISSIBLE_WITH_LIMITS | ✅ | 0.80 | PASS | 100% |
+| CUST-005 | NEEDS_REVIEW | NEEDS_REVIEW | ✅ | 0.37 | PASS | 100% |
+| CUST-006 | NEEDS_REVIEW | NEEDS_REVIEW | ✅ | 0.37 | PASS | 100% |

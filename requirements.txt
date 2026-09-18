@@ -1,0 +1,17 @@
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+pydantic==2.13.5
+python-dotenv==1.2.3
+httpx==0.28.1
+requests==2.34.2
+
+pdfplumber==0.11.10
+
+fastembed==0.8.0
+rank-bm25==0.2.2
+numpy==2.5.3
+onnxruntime==1.30.0
+
+streamlit==1.64.0
+
+pytest==9.1.1

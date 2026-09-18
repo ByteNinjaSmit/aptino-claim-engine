@@ -1,0 +1,188 @@
+[
+  {
+    "case_id": "CUST-001",
+    "policy_id": "USGIC-CSC-2017-2018",
+    "policy_start_date": "2026-05-01",
+    "claim_date": "2026-08-20",
+    "sum_insured_inr": 500000,
+    "continuous_coverage_months": 3,
+    "prior_insurer_continuous_years": 0,
+    "patient": {"age": 45},
+    "hospital": {"name": "Green Valley Hospital", "network_provider": true},
+    "treatment": {
+      "type": "inpatient",
+      "admission_hours": 72,
+      "diagnosis": "Inguinal Hernia",
+      "procedure": "Hernia repair surgery",
+      "pre_existing": false,
+      "experimental": false
+    },
+    "expenses_inr": {
+      "room": 15000,
+      "doctor_fees": 20000,
+      "medicines_diagnostics": 40000,
+      "pre_hospitalization": 0,
+      "post_hospitalization": 0,
+      "ambulance": 0
+    },
+    "documents": ["claim_form", "discharge_summary", "itemized_bill"],
+    "task": "Determine whether hernia repair surgery within the policy's first year is admissible given the named-disease waiting period, with no prior-insurer continuity to rely on."
+  },
+  {
+    "case_id": "CUST-002",
+    "policy_id": "USGIC-CSC-2017-2018",
+    "policy_start_date": "2026-06-01",
+    "claim_date": "2026-09-01",
+    "sum_insured_inr": 500000,
+    "continuous_coverage_months": 3,
+    "prior_insurer_continuous_years": 2,
+    "patient": {"age": 50},
+    "hospital": {"name": "Lakeview Hospital", "network_provider": true},
+    "treatment": {
+      "type": "inpatient",
+      "admission_hours": 96,
+      "diagnosis": "Uterine fibroids",
+      "procedure": "Hysterectomy",
+      "pre_existing": false,
+      "experimental": false
+    },
+    "expenses_inr": {
+      "room": 18000,
+      "doctor_fees": 45000,
+      "medicines_diagnostics": 70000,
+      "pre_hospitalization": 4000,
+      "post_hospitalization": 6000,
+      "ambulance": 0
+    },
+    "documents": ["claim_form", "discharge_summary", "itemized_bill", "doctor_prescription"],
+    "task": "Assess admissibility of hysterectomy performed within the first policy year given 2 continuous prior years with another Indian insurer.",
+    "prior_policy": {
+      "insurer_type": "Indian individual health insurer",
+      "continuous_years": 2,
+      "database_and_claim_history_received": true,
+      "previous_sum_insured_inr": 500000
+    }
+  },
+  {
+    "case_id": "CUST-003",
+    "policy_id": "USGIC-CSC-2017-2018",
+    "policy_start_date": "2024-02-01",
+    "claim_date": "2026-07-15",
+    "sum_insured_inr": 500000,
+    "continuous_coverage_months": 29,
+    "prior_insurer_continuous_years": 0,
+    "patient": {"age": 33},
+    "hospital": {"name": "City General Hospital", "network_provider": true},
+    "treatment": {
+      "type": "inpatient",
+      "admission_hours": 96,
+      "diagnosis": "Fracture femur",
+      "procedure": "Internal fixation surgery",
+      "pre_existing": false,
+      "experimental": false
+    },
+    "expenses_inr": {
+      "room": 25000,
+      "doctor_fees": 35000,
+      "medicines_diagnostics": 60000,
+      "pre_hospitalization": 12000,
+      "post_hospitalization": 20000,
+      "ambulance": 1000
+    },
+    "documents": ["claim_form", "discharge_summary", "itemized_bill", "doctor_prescription", "pre_post_expense_records"],
+    "expense_timing": {
+      "pre_hospitalization_days_before_admission": 45,
+      "post_hospitalization_days_after_discharge": 40,
+      "same_condition_confirmed": true
+    },
+    "task": "Assess the claim and verify whether the pre- and post-hospitalization expenses fall within the policy's time windows."
+  },
+  {
+    "case_id": "CUST-004",
+    "policy_id": "USGIC-CSC-2017-2018",
+    "policy_start_date": "2024-03-01",
+    "claim_date": "2026-08-01",
+    "sum_insured_inr": 300000,
+    "continuous_coverage_months": 28,
+    "prior_insurer_continuous_years": 0,
+    "patient": {"age": 27, "blood_type": "O+"},
+    "hospital": {"name": "Sunshine Hospital", "network_provider": true, "parking_available": true},
+    "treatment": {
+      "type": "inpatient",
+      "admission_hours": 96,
+      "diagnosis": "Acute cholecystitis",
+      "procedure": "Cholecystectomy",
+      "pre_existing": false,
+      "experimental": false
+    },
+    "expenses_inr": {
+      "room": 20000,
+      "doctor_fees": 30000,
+      "medicines_diagnostics": 80000,
+      "pre_hospitalization": 3000,
+      "post_hospitalization": 4000,
+      "ambulance": 800
+    },
+    "documents": ["claim_form", "discharge_summary", "itemized_bill"],
+    "preferred_room_type": "deluxe",
+    "task": "Determine admissibility and applicable limits; the case includes attributes (blood type, hospital parking, preferred room type) that are not relevant to the coverage decision."
+  },
+  {
+    "case_id": "CUST-005",
+    "policy_id": "USGIC-CSC-2017-2018",
+    "policy_start_date": "2024-01-15",
+    "claim_date": "2026-06-20",
+    "sum_insured_inr": 500000,
+    "continuous_coverage_months": 29,
+    "prior_insurer_continuous_years": 0,
+    "patient": {"age": 41},
+    "hospital": {"name": "Advanced Regenerative Care Centre", "network_provider": true},
+    "treatment": {
+      "type": "inpatient",
+      "admission_hours": 96,
+      "diagnosis": "Degenerative joint disease",
+      "procedure": "Experimental stem-cell therapy",
+      "pre_existing": false,
+      "experimental": true
+    },
+    "expenses_inr": {
+      "room": 20000,
+      "doctor_fees": 40000,
+      "medicines_diagnostics": 150000,
+      "pre_hospitalization": 0,
+      "post_hospitalization": 0,
+      "ambulance": 0
+    },
+    "documents": ["claim_form", "discharge_summary", "itemized_bill", "doctor_certificate"],
+    "task": "Determine whether experimental stem-cell therapy is excluded from coverage as an unproven/experimental treatment."
+  },
+  {
+    "case_id": "CUST-006",
+    "policy_id": "USGIC-CSC-2017-2018",
+    "policy_start_date": "2024-04-01",
+    "claim_date": "2026-08-10",
+    "sum_insured_inr": 500000,
+    "continuous_coverage_months": 28,
+    "prior_insurer_continuous_years": 0,
+    "patient": {"age": 60},
+    "hospital": {"name": "HomeCare Plus", "network_provider": false},
+    "treatment": {
+      "type": "domiciliary",
+      "admission_hours": 0,
+      "diagnosis": "Severe bronchial asthma exacerbation",
+      "procedure": "Domiciliary treatment",
+      "pre_existing": false,
+      "experimental": false
+    },
+    "expenses_inr": {
+      "room": 0,
+      "doctor_fees": 30000,
+      "medicines_diagnostics": 60000,
+      "pre_hospitalization": 0,
+      "post_hospitalization": 0,
+      "ambulance": 0
+    },
+    "documents": ["claim_form", "doctor_certificate", "itemized_bill"],
+    "task": "Determine whether the domiciliary treatment qualifies for coverage; the case does not state whether a hospital room was unavailable or the patient could not be moved."
+  }
+]
