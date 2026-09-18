@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: aptino-claim-backend
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: LLM_PROVIDER
+        value: offline

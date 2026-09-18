@@ -168,17 +168,17 @@ pytest
 
 ## 7. Deployment
 
-Deployed as two Hugging Face Spaces: a Docker Space for the FastAPI
-backend and a Streamlit Space for the frontend. See
-[`DEPLOY.md`](DEPLOY.md) for exact commands. Both are free-tier; no GPU
-required (all local retrieval models are small ONNX models run on CPU).
+Backend on **Render** (free Web Service, deploys from GitHub via the
+repo's `Dockerfile`/`render.yaml`); frontend on a **Hugging Face
+Streamlit Space**. See [`DEPLOY.md`](DEPLOY.md) for exact steps. Both are
+free-tier; no GPU required (all local retrieval models are small ONNX
+models run on CPU).
 
-- Backend: `https://<your-username>-aptino-claim-backend.hf.space`
+- Backend: `https://<your-service>.onrender.com`
 - Frontend: `https://<your-username>-aptino-claim-frontend.hf.space`
 
-(Any other host that runs a Python web service works too — Render,
-Railway, Fly.io — via the same `Dockerfile` / start command
-`uvicorn aptino_claims.api.main:app --host 0.0.0.0 --port $PORT`.)
+(A Hugging Face Docker Space works too as a backend alternative if your
+account has Docker Spaces enabled — see `DEPLOY.md`.)
 
 ## 8. Known limitations
 

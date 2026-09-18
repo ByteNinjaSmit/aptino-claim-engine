@@ -1,79 +1,69 @@
-# Deploying to Hugging Face Spaces
+# Deployment
 
-Two Spaces are needed under your HF account: one Docker Space for the
-FastAPI backend, one Streamlit Space for the frontend. The `main` branch
-stays a normal GitHub repo; each Space gets its own local branch with a
-Space-specific `README.md` (HF reads Space config from that file's YAML
-frontmatter), then that branch is pushed to the Space's git remote.
+Backend on **Render** (free Web Service, deploys straight from GitHub —
+no Docker-tier account restriction like some Hugging Face free accounts
+hit). Frontend on a **Hugging Face Streamlit Space** (Streamlit SDK Spaces
+have no such restriction; only the Docker SDK does on some accounts).
 
-## 0. One-time setup
+## 1. Backend — Render
+
+1. https://dashboard.render.com → **New +** → **Web Service** → connect
+   the `aptino-claim-engine` GitHub repo.
+2. Render auto-detects `Dockerfile` at the repo root (env: Docker). Plan:
+   **Free**.
+3. No environment variables are required for the default
+   `LLM_PROVIDER=offline` mode (already set via `render.yaml`). To enable
+   LLM-phrased rationales, add `LLM_PROVIDER=openai_compatible`,
+   `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL` as Render
+   environment variables (never commit them).
+4. Deploy. Render builds the Dockerfile and exposes the service on the
+   `$PORT` it injects (the Dockerfile already reads `$PORT`, defaulting to
+   7860 for other hosts).
+5. Confirm: `GET https://<your-service>.onrender.com/health` →
+   `{"status": "ok", ...}`.
+
+(`render.yaml` at the repo root lets you instead use Render's "Blueprint"
+one-click flow — New + → Blueprint → pick this repo.)
+
+Free-tier note: the service spins down after 15 minutes idle and cold-starts
+(~30-60s, including first-time model download) on the next request — fine
+for review/demo use.
+
+## 2. Frontend — Hugging Face Streamlit Space
 
 ```bash
 pip install -U huggingface_hub
-huggingface-cli login          # paste an HF access token (Write scope) — huggingface.co/settings/tokens
+huggingface-cli login          # paste a Write-scope token — huggingface.co/settings/tokens
 ```
 
-Create the two Spaces (web UI is simplest: huggingface.co/new-space):
-- **Backend**: SDK = Docker, name e.g. `aptino-claim-backend`
-- **Frontend**: SDK = Streamlit, name e.g. `aptino-claim-frontend`
-
-## 1. Backend (Docker Space)
-
-```bash
-git checkout -b deploy-hf-backend main
-cat > README.md <<'EOF'
----
-title: Aptino Claim Backend
-emoji: 🩺
-sdk: docker
-app_port: 7860
----
-EOF
-git add README.md
-git commit -m "HF Space config: docker backend"
-git remote add hf-backend https://huggingface.co/spaces/<your-username>/aptino-claim-backend
-git push hf-backend deploy-hf-backend:main
-git checkout main
-```
-
-No secrets are required for the default `LLM_PROVIDER=offline` mode. To
-enable LLM-phrased rationales, set `LLM_PROVIDER`, `OPENAI_API_KEY`,
-`OPENAI_BASE_URL`, `OPENAI_MODEL` as **Space secrets** (Settings → Variables
-and secrets) rather than committing them.
-
-Once built, the API is at `https://<your-username>-aptino-claim-backend.hf.space`.
-
-## 2. Frontend (Streamlit Space)
+Create the Space via https://huggingface.co/new-space → SDK = **Streamlit**
+(e.g. name it `aptino-claim-frontend`).
 
 ```bash
 git checkout -b deploy-hf-frontend main
-cat > README.md <<'EOF'
----
-title: Aptino Claim Frontend
-emoji: 🩺
-sdk: streamlit
-app_file: frontend/streamlit_app.py
----
-EOF
-git add README.md
-git commit -m "HF Space config: streamlit frontend"
+# README.md on this branch already has the Streamlit Space frontmatter
+# (title/sdk/app_file) — see the branch if you need to re-create it.
 git remote add hf-frontend https://huggingface.co/spaces/<your-username>/aptino-claim-frontend
 git push hf-frontend deploy-hf-frontend:main
 git checkout main
 ```
 
-Set the Space secret `API_URL` to the backend URL from step 1
-(`https://<your-username>-aptino-claim-backend.hf.space`) under Settings →
-Variables and secrets, then restart the Space.
+Set the Space secret `API_URL` to the Render backend URL from step 1
+(Settings → Variables and secrets), then restart the Space.
 
 ## 3. Verify
 
-- `GET https://<backend-space>/health` → `{"status": "ok", ...}`
+- `GET https://<backend>.onrender.com/health` → `{"status": "ok", ...}`
 - Open the frontend Space, run a supplied case, confirm citations + trace render.
 
 ## Updating after a code change
 
-```bash
-git checkout deploy-hf-backend && git merge main && git push hf-backend deploy-hf-backend:main && git checkout main
-git checkout deploy-hf-frontend && git merge main && git push hf-frontend deploy-hf-frontend:main && git checkout main
-```
+- Backend: push to `main` on GitHub — Render auto-redeploys.
+- Frontend: `git checkout deploy-hf-frontend && git merge main && git push hf-frontend deploy-hf-frontend:main && git checkout main`
+
+## Alternative: both on Hugging Face
+
+If your HF account later has Docker Spaces enabled, `deploy-hf-backend`
+(also branched from `main`, with its own Space-config `README.md` +
+`app_port: 7860`) can be pushed the same way to a Docker Space instead of
+using Render — see git history / the `deploy-hf-backend` branch.
