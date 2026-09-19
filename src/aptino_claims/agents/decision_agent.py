@@ -8,6 +8,8 @@ fluent rationale paragraph -- never to decide the outcome itself.
 """
 from __future__ import annotations
 
+import json
+import re
 import time
 
 from ..llm.base import LLMClient
@@ -20,6 +22,41 @@ _WHOLE_CLAIM_EXCLUSION_DIMS = {
     "domiciliary_treatment_conditions",
     "cosmetic_exclusion",
 }
+
+
+_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+
+
+def _norm_number(n: str) -> str:
+    n = n.rstrip("0").rstrip(".") if "." in n else n
+    return n.lstrip("0") or "0"
+
+
+def _numbers(text: str) -> set[str]:
+    return {_norm_number(n) for n in _NUMBER.findall(text.replace(",", ""))}
+
+
+def _guard_llm_rationale(state: CaseState, llm_text: str | None) -> tuple[str | None, str]:
+    """Accept LLM prose only if it is proportionate, names the decision, and introduces no new number.
+
+    Every figure in the paragraph must already appear in the cited findings, the
+    computed limits/amounts, or the case itself; otherwise the model has asserted
+    something the evidence does not support and the cited template is kept.
+    """
+    if not llm_text:
+        return None, "no LLM text"
+    if len(llm_text) >= 4 * len(state.rationale) + 200:
+        return None, "LLM text disproportionately long"
+    if state.decision.value.lower().replace("_", " ") not in llm_text.lower().replace("_", " "):
+        return None, "LLM text does not name the decision"
+    allowed = _numbers(" ".join([
+        state.rationale, json.dumps(state.raw_case, default=str),
+        " ".join(l.description for l in state.applicable_limits), json.dumps(state._amounts(state.decision.value)),
+    ]))
+    invented = sorted(_numbers(llm_text) - allowed)
+    if invented:
+        return None, f"LLM text contains figures not in the evidence: {', '.join(invented[:5])}"
+    return llm_text, "accepted"
 
 
 def _template_rationale(state: CaseState) -> str:
@@ -72,11 +109,11 @@ def run(state: CaseState, llm: LLMClient) -> CaseState:
             f"({state.decision.value.replace('_', ' ').lower()}) explicitly."
         )
         llm_text = llm.generate_rationale(prompt)
-        # Accept LLM prose only if it stays proportionate and still names the
-        # decision; otherwise keep the deterministic, fully-cited template.
-        normalized = llm_text.lower().replace("_", " ") if llm_text else ""
-        if llm_text and len(llm_text) < 4 * len(state.rationale) + 200 and state.decision.value.lower().replace("_", " ") in normalized:
-            state.rationale = llm_text
+        accepted, guard = _guard_llm_rationale(state, llm_text)
+        if accepted:
+            state.rationale, state.rationale_source = accepted, "llm"
+        elif llm_text:
+            state.rationale_source = f"template (LLM text rejected: {guard})"
 
     state.log(
         "DecisionAgent",

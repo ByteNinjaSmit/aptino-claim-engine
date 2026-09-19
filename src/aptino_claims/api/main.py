@@ -30,6 +30,12 @@ async def lifespan(app: FastAPI):
         build_index_main()
     _state["retriever"] = HybridRetriever.load_or_build(settings.index_dir, chunks_path)
     _state["llm"] = get_llm_client()
+    try:
+        # Load the embedding + reranker models now rather than on the first user request,
+        # so /health only reports "ok" once the service can actually answer quickly.
+        _state["retriever"].search("warm-up query")
+    except Exception:  # noqa: BLE001 - a warm-up failure must not stop the service starting
+        logger.exception("Model warm-up failed; the first request will load the models instead")
     yield
     _state.clear()
 
@@ -69,5 +75,5 @@ async def analyze(case: ClaimCaseIn) -> dict:
         state = analyze_case(case.model_dump(), retriever, _state["llm"])
     except Exception as exc:  # defensive: never let a case-specific failure surface a stack trace
         logger.exception("Analysis failed for case %s", case.case_id)
-        raise HTTPException(status_code=422, detail=f"Could not analyze case {case.case_id}: {exc}") from exc
+        raise HTTPException(status_code=500, detail=f"Internal error while analyzing case {case.case_id}.") from exc
     return state.to_response()

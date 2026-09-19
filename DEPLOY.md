@@ -1,5 +1,7 @@
 # Deployment
 
+Live: frontend https://aptino-claim-frontend.twistark.cloud, API https://aptino-claim-backend.twistark.cloud/health (nginx + HTTPS in front of the compose stack).
+
 Everything is Dockerized and deployed to a VPS (tested sizing: 4 vCPU /
 16 GB RAM / 200 GB disk — far more than needed; ~2 GB RAM is plenty).
 

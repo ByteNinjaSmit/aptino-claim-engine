@@ -21,6 +21,14 @@ _KNOWN_TOP_LEVEL_FIELDS = {
 }
 
 
+_KNOWN_NESTED_FIELDS = {
+    "patient": {"age"},
+    "hospital": {"name", "network_provider"},
+    "treatment": {"type", "admission_hours", "diagnosis", "procedure", "pre_existing", "experimental",
+                  "package_charges_agreed", "hospital_room_unavailable", "patient_cannot_be_moved"},
+}
+
+
 def _parse_date(value: str | None) -> date | None:
     if not value:
         return None
@@ -75,6 +83,8 @@ def build_facts(raw_case: dict) -> tuple[dict, list[MissingEvidence]]:
     # Reliability scenario: input attributes irrelevant to the policy decision
     # (kept, but never fed into any dimension's reasoning).
     unrecognized = set(raw_case.keys()) - _KNOWN_TOP_LEVEL_FIELDS
+    for group, known in _KNOWN_NESTED_FIELDS.items():
+        unrecognized |= {f"{group}.{k}" for k in (raw_case.get(group) or {}) if k not in known}
     facts["_unrecognized_fields"] = sorted(unrecognized)
 
     # Reliability scenario: the case author explicitly flags a fact as

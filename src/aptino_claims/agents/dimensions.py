@@ -675,6 +675,20 @@ def _sublimits_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
                           "Ambulance", exp["ambulance"], cap, percent=amb_pct, flat=amb_flat)
         statement = "Category-wise sub-limits (room/boarding, practitioner fees, medicines/anesthesia, ambulance) were checked against claimed expenses."
 
+    # The whole payout is "subject to the overall Sum Insured limit" (Additional Benefits note).
+    total_claimed = sum(v for v in exp.values() if isinstance(v, (int, float)))
+    remaining = total_claimed - sum(l.deduction_inr or 0 for l in limits)
+    if si and remaining > si:
+        overall = next((ev for ev in evidence if "overall sum insured" in " ".join(ev.text.lower().split())), None)
+        if overall is not None:
+            limits.append(ApplicableLimit(
+                description=f"Overall Sum Insured limit (INR {si:,.0f}) caps the total payable",
+                dimension=dim, deduction_inr=remaining - si,
+                citations=[cite(overall, "Overall Sum Insured limit", phrases("overall sum insured"))],
+            ))
+        else:
+            assumptions.append("The total payable exceeds the sum insured but the overall-limit clause was not retrieved, so the cap was not applied.")
+
     top = evidence[0]
     finding = Finding(
         dimension=dim, applicable=bool(limits),

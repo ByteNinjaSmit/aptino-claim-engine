@@ -194,8 +194,8 @@ push them to Docker Hub, and roll them out on a VPS with
 `docker compose` (`docker-compose.yml`). No GPU required (all retrieval
 models are small ONNX models run on CPU). See [`DEPLOY.md`](DEPLOY.md).
 
-- API: `http://<vps>:8000`
-- Frontend: `http://<vps>:8501`
+- **Live API:** https://aptino-claim-backend.twistark.cloud  (`GET /health`, `POST /analyze`)
+- **Live frontend:** https://aptino-claim-frontend.twistark.cloud
 
 Run the same stack locally: `DOCKERHUB_USERNAME=local docker compose up --build`.
 

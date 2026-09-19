@@ -146,6 +146,7 @@ class CaseState(BaseModel):
     decision: DecisionStatus | None = None
     confidence: float = 0.0
     rationale: str = ""
+    rationale_source: str = "template"
 
     validation: ValidationOutcome | None = None
     trace: list[TraceEvent] = Field(default_factory=list)
@@ -281,6 +282,7 @@ class CaseState(BaseModel):
             "citations": [{**c.model_dump(), "excerpt": self._excerpt_for(c.chunk_id)} for c in self.all_citations()],
             "validation": validation,
             "rationale": self.rationale,
+            "rationale_source": self.rationale_source,
             "trace": [t.model_dump() for t in self.trace],
             "handoffs": [h.model_dump() for h in self.handoffs],
         }

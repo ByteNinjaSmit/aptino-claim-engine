@@ -116,7 +116,7 @@ OpenAI, Together, local Ollama) but is only ever asked to rephrase an
 *already-computed, already-cited* finding set into one fluent paragraph —
 never to decide the outcome. If no key is configured
 (`LLM_PROVIDER=offline`, the default) or the call fails or looks
-suspicious (wildly longer than the input), the system falls back to a
+unsupported (see below), the system falls back to a
 deterministic templated rationale built directly from the findings. This
 was a deliberate trade-off given the assignment's explicit red flag for
 "confident unsupported decisions": free-form LLM reasoning over retrieved
@@ -126,6 +126,14 @@ would be available for grading. The interpretation step (`Coverage &
 Exclusion Agent`) is where a real deployment would most plausibly add LLM
 reasoning on top of the same evidence, with the Validation Agent as the
 existing safety net against citation drift.
+
+**Guard on LLM prose.** The rationale is the one place free text enters the
+response, so it is checked before use: it must be proportionate, must name
+the decision, and every figure in it must already appear in the cited
+findings, the computed limits/amounts or the case itself. A paragraph that
+introduces a number the evidence does not contain is discarded and the cited
+template is kept; the response reports `rationale_source` (`llm` or
+`template (LLM text rejected: ...)`).
 
 ## 5. Evidence verification and the retry loop
 
@@ -204,3 +212,21 @@ record. Reviews are client-side; the API is stateless.
 - **Evaluation is the author's own.** Labels are the author's reading of the
   policy and 26 cases is small; see "What this evaluation does not prove" in
   `eval_results/report.md`.
+- **Verification is partly true by construction.** For threshold claims the
+  number asserted is parsed from the same chunk it is then checked against, so
+  those checks confirm the chunk was retrieved and states the figure, not that
+  the figure is the right one. The checks with independent teeth are the limit
+  arithmetic, the absence scan over the whole policy, the decision-consistency
+  rules and the fault-injection controls that measure them.
+- **Keyword-driven applicability.** Named-disease, day-care and cosmetic checks
+  match literal terms ("cataract", "cosmetic"); a paraphrase such as
+  "phacoemulsification" would not trigger the first-year wait. The unknown-
+  dimension check is a partial safety net, not a substitute for coverage.
+- **PUB-004 (domiciliary).** Exclusion items 18-20 restrict domiciliary
+  treatment (including "any treatment not exceeding three days"); the case
+  states no duration, and the system does not abstain on that.
+- **Indexing noise.** The PDF's two-column address block is chunked into eight
+  irrelevant "sections"; they are harmless to retrieval but untidy.
+- **Payout ceiling.** The total payable is capped at the sum insured when the
+  overall-limit clause is retrieved; no supplied case reaches it, so this is
+  covered by a unit test only.
