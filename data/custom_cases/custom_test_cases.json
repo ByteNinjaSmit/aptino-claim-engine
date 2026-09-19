@@ -7,8 +7,13 @@
     "sum_insured_inr": 500000,
     "continuous_coverage_months": 3,
     "prior_insurer_continuous_years": 0,
-    "patient": {"age": 45},
-    "hospital": {"name": "Green Valley Hospital", "network_provider": true},
+    "patient": {
+      "age": 45
+    },
+    "hospital": {
+      "name": "Green Valley Hospital",
+      "network_provider": true
+    },
     "treatment": {
       "type": "inpatient",
       "admission_hours": 72,
@@ -25,7 +30,11 @@
       "post_hospitalization": 0,
       "ambulance": 0
     },
-    "documents": ["claim_form", "discharge_summary", "itemized_bill"],
+    "documents": [
+      "claim_form",
+      "discharge_summary",
+      "itemized_bill"
+    ],
     "task": "Determine whether hernia repair surgery within the policy's first year is admissible given the named-disease waiting period, with no prior-insurer continuity to rely on."
   },
   {
@@ -36,8 +45,13 @@
     "sum_insured_inr": 500000,
     "continuous_coverage_months": 3,
     "prior_insurer_continuous_years": 2,
-    "patient": {"age": 50},
-    "hospital": {"name": "Lakeview Hospital", "network_provider": true},
+    "patient": {
+      "age": 50
+    },
+    "hospital": {
+      "name": "Lakeview Hospital",
+      "network_provider": true
+    },
     "treatment": {
       "type": "inpatient",
       "admission_hours": 96,
@@ -54,7 +68,12 @@
       "post_hospitalization": 6000,
       "ambulance": 0
     },
-    "documents": ["claim_form", "discharge_summary", "itemized_bill", "doctor_prescription"],
+    "documents": [
+      "claim_form",
+      "discharge_summary",
+      "itemized_bill",
+      "doctor_prescription"
+    ],
     "task": "Assess admissibility of hysterectomy performed within the first policy year given 2 continuous prior years with another Indian insurer.",
     "prior_policy": {
       "insurer_type": "Indian individual health insurer",
@@ -71,8 +90,13 @@
     "sum_insured_inr": 500000,
     "continuous_coverage_months": 29,
     "prior_insurer_continuous_years": 0,
-    "patient": {"age": 33},
-    "hospital": {"name": "City General Hospital", "network_provider": true},
+    "patient": {
+      "age": 33
+    },
+    "hospital": {
+      "name": "City General Hospital",
+      "network_provider": true
+    },
     "treatment": {
       "type": "inpatient",
       "admission_hours": 96,
@@ -89,7 +113,13 @@
       "post_hospitalization": 20000,
       "ambulance": 1000
     },
-    "documents": ["claim_form", "discharge_summary", "itemized_bill", "doctor_prescription", "pre_post_expense_records"],
+    "documents": [
+      "claim_form",
+      "discharge_summary",
+      "itemized_bill",
+      "doctor_prescription",
+      "pre_post_expense_records"
+    ],
     "expense_timing": {
       "pre_hospitalization_days_before_admission": 45,
       "post_hospitalization_days_after_discharge": 40,
@@ -105,8 +135,15 @@
     "sum_insured_inr": 300000,
     "continuous_coverage_months": 28,
     "prior_insurer_continuous_years": 0,
-    "patient": {"age": 27, "blood_type": "O+"},
-    "hospital": {"name": "Sunshine Hospital", "network_provider": true, "parking_available": true},
+    "patient": {
+      "age": 27,
+      "blood_type": "O+"
+    },
+    "hospital": {
+      "name": "Sunshine Hospital",
+      "network_provider": true,
+      "parking_available": true
+    },
     "treatment": {
       "type": "inpatient",
       "admission_hours": 96,
@@ -123,7 +160,11 @@
       "post_hospitalization": 4000,
       "ambulance": 800
     },
-    "documents": ["claim_form", "discharge_summary", "itemized_bill"],
+    "documents": [
+      "claim_form",
+      "discharge_summary",
+      "itemized_bill"
+    ],
     "preferred_room_type": "deluxe",
     "task": "Determine admissibility and applicable limits; the case includes attributes (blood type, hospital parking, preferred room type) that are not relevant to the coverage decision."
   },
@@ -135,8 +176,13 @@
     "sum_insured_inr": 500000,
     "continuous_coverage_months": 29,
     "prior_insurer_continuous_years": 0,
-    "patient": {"age": 41},
-    "hospital": {"name": "Advanced Regenerative Care Centre", "network_provider": true},
+    "patient": {
+      "age": 41
+    },
+    "hospital": {
+      "name": "Advanced Regenerative Care Centre",
+      "network_provider": true
+    },
     "treatment": {
       "type": "inpatient",
       "admission_hours": 96,
@@ -153,7 +199,12 @@
       "post_hospitalization": 0,
       "ambulance": 0
     },
-    "documents": ["claim_form", "discharge_summary", "itemized_bill", "doctor_certificate"],
+    "documents": [
+      "claim_form",
+      "discharge_summary",
+      "itemized_bill",
+      "doctor_certificate"
+    ],
     "task": "Determine whether experimental stem-cell therapy is excluded from coverage as an unproven/experimental treatment."
   },
   {
@@ -164,8 +215,13 @@
     "sum_insured_inr": 500000,
     "continuous_coverage_months": 28,
     "prior_insurer_continuous_years": 0,
-    "patient": {"age": 60},
-    "hospital": {"name": "HomeCare Plus", "network_provider": false},
+    "patient": {
+      "age": 60
+    },
+    "hospital": {
+      "name": "HomeCare Plus",
+      "network_provider": false
+    },
     "treatment": {
       "type": "domiciliary",
       "admission_hours": 0,
@@ -182,7 +238,331 @@
       "post_hospitalization": 0,
       "ambulance": 0
     },
-    "documents": ["claim_form", "doctor_certificate", "itemized_bill"],
+    "documents": [
+      "claim_form",
+      "doctor_certificate",
+      "itemized_bill"
+    ],
     "task": "Determine whether the domiciliary treatment qualifies for coverage; the case does not state whether a hospital room was unavailable or the patient could not be moved."
+  },
+  {
+    "case_id": "CUST-007",
+    "policy_id": "USGIC-CSC-2017-2018",
+    "policy_start_date": "2025-06-01",
+    "claim_date": "2026-08-01",
+    "sum_insured_inr": 500000,
+    "continuous_coverage_months": 14,
+    "prior_insurer_continuous_years": 4,
+    "patient": {
+      "age": 55
+    },
+    "hospital": {
+      "name": "Heartline Hospital",
+      "network_provider": true
+    },
+    "treatment": {
+      "type": "inpatient",
+      "admission_hours": 72,
+      "diagnosis": "Pre-existing coronary artery disease",
+      "procedure": "Angioplasty",
+      "pre_existing": true,
+      "experimental": false
+    },
+    "expenses_inr": {
+      "room": 15000,
+      "doctor_fees": 60000,
+      "medicines_diagnostics": 150000,
+      "pre_hospitalization": 0,
+      "post_hospitalization": 0,
+      "ambulance": 900
+    },
+    "documents": [
+      "claim_form",
+      "discharge_summary",
+      "itemized_bill",
+      "prior_medical_records"
+    ],
+    "task": "Assess a pre-existing condition where 14 months with this insurer plus 4 completed prior-insurer years may meet the waiting period.",
+    "prior_policy": {
+      "insurer_type": "Indian individual health insurer",
+      "continuous_years": 4,
+      "database_and_claim_history_received": true,
+      "previous_sum_insured_inr": 500000
+    }
+  },
+  {
+    "case_id": "CUST-008",
+    "policy_id": "USGIC-CSC-2017-2018",
+    "policy_start_date": "2024-02-01",
+    "claim_date": "2026-07-20",
+    "sum_insured_inr": 500000,
+    "continuous_coverage_months": 29,
+    "prior_insurer_continuous_years": 0,
+    "patient": {
+      "age": 31
+    },
+    "hospital": {
+      "name": "Bright Smile Hospital",
+      "network_provider": true
+    },
+    "treatment": {
+      "type": "inpatient",
+      "admission_hours": 30,
+      "diagnosis": "Dental caries",
+      "procedure": "Extraction of molars under general anaesthesia",
+      "pre_existing": false,
+      "experimental": false
+    },
+    "expenses_inr": {
+      "room": 8000,
+      "doctor_fees": 20000,
+      "medicines_diagnostics": 15000,
+      "pre_hospitalization": 0,
+      "post_hospitalization": 0,
+      "ambulance": 0
+    },
+    "documents": [
+      "claim_form",
+      "discharge_summary",
+      "itemized_bill"
+    ],
+    "task": "Decide the claim; the policy has a specific dental exclusion that no modelled check evaluates, so the system should surface it rather than ignore it."
+  },
+  {
+    "case_id": "CUST-009",
+    "policy_id": "USGIC-CSC-2017-2018",
+    "policy_start_date": "2024-02-01",
+    "claim_date": "2026-07-25",
+    "sum_insured_inr": 500000,
+    "continuous_coverage_months": 29,
+    "prior_insurer_continuous_years": 0,
+    "patient": {
+      "age": 29
+    },
+    "hospital": {
+      "name": "Mother Care Hospital",
+      "network_provider": true
+    },
+    "treatment": {
+      "type": "inpatient",
+      "admission_hours": 96,
+      "diagnosis": "Pregnancy with pre-eclampsia",
+      "procedure": "Caesarean section",
+      "pre_existing": false,
+      "experimental": false
+    },
+    "expenses_inr": {
+      "room": 20000,
+      "doctor_fees": 40000,
+      "medicines_diagnostics": 60000,
+      "pre_hospitalization": 0,
+      "post_hospitalization": 0,
+      "ambulance": 0
+    },
+    "documents": [
+      "claim_form",
+      "discharge_summary",
+      "itemized_bill"
+    ],
+    "task": "Decide the claim; pregnancy-related treatment is named in a specific exclusion that no modelled check evaluates."
+  },
+  {
+    "case_id": "CUST-010",
+    "policy_id": "USGIC-CSC-2017-2018",
+    "policy_start_date": "2024-02-01",
+    "claim_date": "2026-07-28",
+    "sum_insured_inr": 500000,
+    "continuous_coverage_months": 29,
+    "prior_insurer_continuous_years": 0,
+    "patient": {
+      "age": 42
+    },
+    "hospital": {
+      "name": "Quick Care Hospital",
+      "network_provider": true
+    },
+    "treatment": {
+      "type": "inpatient",
+      "admission_hours": 12,
+      "diagnosis": "Acute bronchospasm",
+      "procedure": "Nebulisation and observation",
+      "pre_existing": false,
+      "experimental": false
+    },
+    "expenses_inr": {
+      "room": 3000,
+      "doctor_fees": 4000,
+      "medicines_diagnostics": 6000,
+      "pre_hospitalization": 0,
+      "post_hospitalization": 0,
+      "ambulance": 0
+    },
+    "documents": [
+      "claim_form",
+      "discharge_summary",
+      "itemized_bill"
+    ],
+    "task": "A 12-hour stay for a procedure not on the policy's short-stay list: can the claim be decided without a medical justification?"
+  },
+  {
+    "case_id": "CUST-011",
+    "policy_id": "USGIC-CSC-2017-2018",
+    "policy_start_date": "2026-08-01",
+    "claim_date": "2026-08-15",
+    "sum_insured_inr": 500000,
+    "continuous_coverage_months": 0,
+    "prior_insurer_continuous_years": 0,
+    "patient": {
+      "age": 33
+    },
+    "hospital": {
+      "name": "Aura Aesthetic Centre",
+      "network_provider": true
+    },
+    "treatment": {
+      "type": "inpatient",
+      "admission_hours": 96,
+      "diagnosis": "Cosmetic condition",
+      "procedure": "Aesthetic rhinoplasty",
+      "pre_existing": false,
+      "experimental": false
+    },
+    "expenses_inr": {
+      "room": 15000,
+      "doctor_fees": 50000,
+      "medicines_diagnostics": 40000,
+      "pre_hospitalization": 0,
+      "post_hospitalization": 0,
+      "ambulance": 0
+    },
+    "documents": [
+      "claim_form",
+      "discharge_summary",
+      "itemized_bill"
+    ],
+    "task": "Two independent grounds may exclude this claim: the 30-day waiting period and the cosmetic exclusion."
+  },
+  {
+    "case_id": "CUST-012",
+    "policy_id": "USGIC-CSC-2017-2018",
+    "policy_start_date": "2024-02-01",
+    "claim_date": "2026-07-30",
+    "sum_insured_inr": 500000,
+    "continuous_coverage_months": 29,
+    "prior_insurer_continuous_years": 0,
+    "patient": {
+      "age": 36
+    },
+    "hospital": {
+      "name": "Unverified Clinic",
+      "network_provider": false
+    },
+    "treatment": {
+      "type": "inpatient",
+      "admission_hours": 96,
+      "diagnosis": "Cosmetic condition",
+      "procedure": "Cosmetic surgery",
+      "pre_existing": false,
+      "experimental": false
+    },
+    "expenses_inr": {
+      "room": 10000,
+      "doctor_fees": 20000,
+      "medicines_diagnostics": 30000,
+      "pre_hospitalization": 0,
+      "post_hospitalization": 0,
+      "ambulance": 0
+    },
+    "documents": [
+      "claim_form",
+      "itemized_bill"
+    ],
+    "task": "The cosmetic exclusion is established, but the hospital's registration is unresolved; does the open question change the outcome?",
+    "evidence_context": {
+      "hospital_registered": null
+    }
+  },
+  {
+    "case_id": "CUST-013",
+    "policy_id": "USGIC-CSC-2017-2018",
+    "policy_start_date": "2024-02-01",
+    "claim_date": "2026-08-05",
+    "sum_insured_inr": 200000,
+    "continuous_coverage_months": 30,
+    "prior_insurer_continuous_years": 0,
+    "patient": {
+      "age": 47
+    },
+    "hospital": {
+      "name": "Mid City Hospital",
+      "network_provider": true
+    },
+    "treatment": {
+      "type": "inpatient",
+      "admission_hours": 48,
+      "diagnosis": "Typhoid fever",
+      "procedure": "Intravenous antibiotic therapy",
+      "pre_existing": false,
+      "experimental": false
+    },
+    "expenses_inr": {
+      "room": 12000,
+      "doctor_fees": 60000,
+      "medicines_diagnostics": 90000,
+      "pre_hospitalization": 0,
+      "post_hospitalization": 0,
+      "ambulance": 1500
+    },
+    "documents": [
+      "claim_form",
+      "discharge_summary",
+      "itemized_bill"
+    ],
+    "task": "Small sum insured: check all four category caps (room, practitioner fees, medicines, ambulance) against this bill."
+  },
+  {
+    "case_id": "CUST-014",
+    "policy_id": "USGIC-CSC-2017-2018",
+    "policy_start_date": "2026-03-01",
+    "claim_date": "2026-09-01",
+    "sum_insured_inr": 500000,
+    "continuous_coverage_months": 6,
+    "prior_insurer_continuous_years": 1,
+    "patient": {
+      "age": 52
+    },
+    "hospital": {
+      "name": "Vision Plus Hospital",
+      "network_provider": true
+    },
+    "treatment": {
+      "type": "day_care",
+      "admission_hours": 8,
+      "diagnosis": "Cataract",
+      "procedure": "Eye surgery",
+      "pre_existing": false,
+      "experimental": false
+    },
+    "expenses_inr": {
+      "room": 0,
+      "doctor_fees": 18000,
+      "medicines_diagnostics": 40000,
+      "pre_hospitalization": 0,
+      "post_hospitalization": 0,
+      "ambulance": 0
+    },
+    "documents": [
+      "claim_form",
+      "procedure_record",
+      "itemized_bill",
+      "doctor_certificate"
+    ],
+    "task": "First-year cataract claim with one prior-insurer year, but the prior insurer's database and claim history were not received.",
+    "prior_policy": {
+      "insurer_type": "Indian individual health insurer",
+      "continuous_years": 1,
+      "database_and_claim_history_received": false,
+      "previous_sum_insured_inr": 500000
+    }
   }
 ]

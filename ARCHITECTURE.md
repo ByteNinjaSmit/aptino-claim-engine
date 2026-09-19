@@ -48,9 +48,9 @@ raw case JSON
 └─────────────────────┘    never LLM-decided)
      │
      ▼
-┌─────────────────────┐   citation ⊆ retrieved-evidence check,
-│  Validation Agent    │──▶ PASS/FAIL, downgrade-to-NEEDS_REVIEW retry
-└─────────────────────┘
+┌─────────────────────┐   claim -> citation -> chunk -> verdict
+│  Validation Agent    │──▶ (SUPPORTED/UNSUPPORTED/CONTRADICTED);
+└─────────────────────┘    on FAIL: widened re-retrieval once, then abstain
      │
      ▼
  decision contract JSON
@@ -65,8 +65,7 @@ agent owns a distinct part of that schema and cannot touch the others.
 
 A plain Python function pipeline (`agents/orchestrator.py`) implements the
 sequence instead of a graph framework — the flow is a fixed sequence with
-one localized retry (Validation Agent downgrading the decision when a
-citation doesn't hold up), so LangGraph would add indirection without
+one localized retry loop (Validation -> Policy Evidence, once, with widened retrieval), so LangGraph would add indirection without
 adding capability at this scale. Swapping in LangGraph later only means
 replacing that one module.
 
@@ -100,7 +99,7 @@ replacing that one module.
 
 ## 4. Why the admissibility logic is deterministic, not LLM-free-text
 
-Each of the ten decision dimensions (`agents/dimensions.py`) is an
+Each of the ten modelled decision dimensions (`agents/dimensions.py`) is an
 (applicability check, retrieval query, evaluator) triple. The evaluator
 never hardcodes a policy number — it **parses the actual number out of the
 text of the chunk that was retrieved** (`agents/rules_extract.py`), e.g. it
@@ -128,38 +127,80 @@ Exclusion Agent`) is where a real deployment would most plausibly add LLM
 reasoning on top of the same evidence, with the Validation Agent as the
 existing safety net against citation drift.
 
-## 5. Validation / retry behavior
+## 5. Evidence verification and the retry loop
 
-The Validation Agent checks two things about every material citation: (1)
-the cited `chunk_id` was actually among the evidence retrieved for that
-dimension (catches a mismatched citation), and (2) any policy-threshold
-number named in the citation's short claim label literally appears in the
-cited chunk's text (catches a number that isn't backed by what was
-retrieved). On `FAIL`, the case is downgraded to `NEEDS_REVIEW` — this is
-the system's one retry/revision behavior. There's nothing left to
-re-retrieve at that point (the evidence already didn't support the claim),
-so "retry" here means "fail safe to abstention" rather than "try again",
-which is the correct behavior for an insurance decision system.
+Every material statement is turned into an auditable chain:
 
-## 6. Trade-offs and known limitations
+```
+decision claim -> citation -> retrieved policy chunk -> evidence check -> SUPPORTED | UNSUPPORTED | CONTRADICTED
+```
 
-- **Ten hand-designed dimensions, not a general reasoner.** This covers
-  every reliability scenario in the assignment brief and all 18 evaluation
-  cases, but a genuinely novel policy question outside these ten axes
-  would currently fall through with no dimension flagged, rather than
-  being caught generically. A production system would want an eleventh
-  "catch-all" dimension or an LLM-based gap-detector.
-- **Sub-limit math assumes one occupancy tier.** `expenses_inr.room` is
-  treated as normal room rent; the policy's separate ICU/day sub-limit
-  isn't applied because the input schema doesn't distinguish ICU days from
-  ward days.
-- **Regex-based number extraction is exact-text-dependent.** It works
-  because this is a fixed, known PDF; a differently-formatted policy PDF
-  would need a review of the extraction patterns (this is explicitly
-  favored over a hardcoded number table for the reasons in §4, but it's
-  not a general-purpose numeric-clause parser).
-- **PARTIALLY_ADMISSIBLE vs ADMISSIBLE_WITH_LIMITS** is decided by whether
-  a distinctly-named claim component (currently: pre/post-hospitalization
-  expenses on a confirmed window violation) is fully excluded, vs. a
-  proportional cap reducing but not zeroing a component. This line is a
-  judgment call documented here rather than dictated by the policy text.
+Each citation a finding produces carries a machine-checkable *assertion*
+(`agents/verification.py`): a threshold ("30 days"), required phrases, a
+limit ("1% of sum insured, cap = 1% x SI x days, deduction = claimed - cap"),
+or an *absence* claim ("no other clause of the policy mentions
+'experimental'", checked by scanning the whole corpus). The Validation Agent
+checks each assertion against the text of the cited chunk:
+
+- **SUPPORTED** - the chunk contains what the claim asserts.
+- **UNSUPPORTED** - it does not, or the chunk was never retrieved.
+- **CONTRADICTED** - the chunk states a *different* figure, the claim's own
+  arithmetic fails, or the final decision conflicts with its own findings
+  (e.g. "admissible" while a verified exclusion or a deduction exists).
+
+Verification is deterministic (no LLM), so it is reproducible and cheap.
+It is measured, not assumed: the evaluation injects wrong chunks, wrong
+numbers, tampered arithmetic and flipped decisions and reports how many are
+caught (`eval_results/report.md`).
+
+**Retry.** If any claim fails, the orchestrator loops back to the Policy
+Evidence Agent once with retrieval widened 2x (a clause may simply have
+ranked just outside the first top-k), then recomputes findings, decision and
+validation. If it still fails, the decision is downgraded to `NEEDS_REVIEW`.
+The loop, the reason for it, and each agent's reads/writes are recorded on
+the state and shown in the UI's *Agent workflow* tab.
+
+## 6. Unknown policy dimension (safety net)
+
+The ten modelled dimensions cannot cover every rule in a policy. The policy
+has specific exclusions the system does not model (dental, pregnancy,
+spectacles, HIV, outpatient, listed chronic diseases, ...). An eleventh check,
+`unmodelled_policy_risk`, looks at what the case is *about* (diagnosis and
+procedure), retrieves the exclusions that name the same thing, and - if a
+clause not already used by a modelled dimension matches - abstains with the
+exact clause cited. It never decides a claim itself; it turns "silently
+ignored" into "surfaced to a reviewer". Generic clinical words and treatment
+modes are excluded from matching to keep false alarms low (see failure #10).
+
+## 7. Reviewer support
+
+The UI's reviewer panel is built from the same state: what needs attention
+first (unsupported claims, unmodelled rules, missing evidence, retries), the
+claim audit table with per-check detail and the cited excerpt, every
+**assumption** the system made (e.g. "room limit applied per day of stay",
+"network hospital presumed to meet the Hospital definition"), and a form to
+record agree / override / escalate with notes as a downloadable JSON audit
+record. Reviews are client-side; the API is stateless.
+
+## 8. Trade-offs and known limitations
+
+- **Eleven hand-designed dimensions, not a general reasoner.** The unknown-
+  dimension check catches lexical overlap with a specific exclusion; it would
+  miss a rule that applies for reasons not named in the diagnosis/procedure.
+- **Sub-limit math rests on stated assumptions.** Room limit per day of stay;
+  all room spend treated as normal-room (the input has no ICU split); the 75%
+  package cap only when a package is stated. Each appears in the response's
+  `assumptions`.
+- **Regex-based number extraction is exact-text-dependent.** Extraction is
+  clause-level and verified by the evidence checker, but a differently
+  formatted policy would need its patterns reviewed.
+- **Chunking limitation.** Exclusion items 18-20 are sub-items of 17
+  (domiciliary-only) in the PDF but are chunked as top-level items (see
+  `eval_results/failure_analysis.md` #11).
+- **PARTIALLY_ADMISSIBLE vs ADMISSIBLE_WITH_LIMITS** is decided by whether a
+  distinctly-named claim component (pre/post-hospitalization expenses on a
+  confirmed window violation) is fully excluded, versus a proportional cap.
+  This line is a documented judgment call, not dictated by the policy text.
+- **Evaluation is the author's own.** Labels are the author's reading of the
+  policy and 26 cases is small; see "What this evaluation does not prove" in
+  `eval_results/report.md`.

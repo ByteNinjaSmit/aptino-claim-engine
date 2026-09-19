@@ -1,16 +1,273 @@
 {
-  "n_cases": 18,
-  "decision_accuracy": 1.0,
-  "citation_validation_pass_rate": 1.0,
-  "retrieval_evidence_hit_rate": 1.0,
-  "required_abstentions": {
+  "n_cases": 26,
+  "n_public": 12,
+  "n_custom": 14,
+  "decision": {
+    "accuracy": 1.0,
+    "correct": 26,
+    "n": 26,
+    "confusion_matrix": {
+      "ADMISSIBLE": {
+        "ADMISSIBLE": 5,
+        "ADMISSIBLE_WITH_LIMITS": 0,
+        "PARTIALLY_ADMISSIBLE": 0,
+        "NOT_ADMISSIBLE": 0,
+        "NEEDS_REVIEW": 0
+      },
+      "ADMISSIBLE_WITH_LIMITS": {
+        "ADMISSIBLE": 0,
+        "ADMISSIBLE_WITH_LIMITS": 5,
+        "PARTIALLY_ADMISSIBLE": 0,
+        "NOT_ADMISSIBLE": 0,
+        "NEEDS_REVIEW": 0
+      },
+      "PARTIALLY_ADMISSIBLE": {
+        "ADMISSIBLE": 0,
+        "ADMISSIBLE_WITH_LIMITS": 0,
+        "PARTIALLY_ADMISSIBLE": 1,
+        "NOT_ADMISSIBLE": 0,
+        "NEEDS_REVIEW": 0
+      },
+      "NOT_ADMISSIBLE": {
+        "ADMISSIBLE": 0,
+        "ADMISSIBLE_WITH_LIMITS": 0,
+        "PARTIALLY_ADMISSIBLE": 0,
+        "NOT_ADMISSIBLE": 7,
+        "NEEDS_REVIEW": 0
+      },
+      "NEEDS_REVIEW": {
+        "ADMISSIBLE": 0,
+        "ADMISSIBLE_WITH_LIMITS": 0,
+        "PARTIALLY_ADMISSIBLE": 0,
+        "NOT_ADMISSIBLE": 0,
+        "NEEDS_REVIEW": 8
+      }
+    },
+    "per_class": {
+      "ADMISSIBLE": {
+        "support": 5,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "ADMISSIBLE_WITH_LIMITS": {
+        "support": 5,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "PARTIALLY_ADMISSIBLE": {
+        "support": 1,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "NOT_ADMISSIBLE": {
+        "support": 7,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "NEEDS_REVIEW": {
+        "support": 8,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      }
+    },
+    "unsafe_decisions": [],
+    "unsafe_decision_rate": 0.0,
+    "abstention_precision": 1.0,
+    "abstention_recall": 1.0
+  },
+  "amounts": {
+    "exact_match_rate": 1.0,
+    "n": 11,
+    "rows": [
+      {
+        "case_id": "PUB-001",
+        "expected_deduction_inr": 10200,
+        "actual_deduction_inr": 10200.0,
+        "match": true
+      },
+      {
+        "case_id": "PUB-004",
+        "expected_deduction_inr": 5000,
+        "actual_deduction_inr": 5000.0,
+        "match": true
+      },
+      {
+        "case_id": "PUB-005",
+        "expected_deduction_inr": 0,
+        "actual_deduction_inr": 0.0,
+        "match": true
+      },
+      {
+        "case_id": "PUB-007",
+        "expected_deduction_inr": 190500,
+        "actual_deduction_inr": 190500.0,
+        "match": true
+      },
+      {
+        "case_id": "PUB-009",
+        "expected_deduction_inr": 0,
+        "actual_deduction_inr": 0.0,
+        "match": true
+      },
+      {
+        "case_id": "PUB-010",
+        "expected_deduction_inr": 0,
+        "actual_deduction_inr": 0.0,
+        "match": true
+      },
+      {
+        "case_id": "CUST-002",
+        "expected_deduction_inr": 0,
+        "actual_deduction_inr": 0.0,
+        "match": true
+      },
+      {
+        "case_id": "CUST-003",
+        "expected_deduction_inr": 17000,
+        "actual_deduction_inr": 17000.0,
+        "match": true
+      },
+      {
+        "case_id": "CUST-004",
+        "expected_deduction_inr": 8000,
+        "actual_deduction_inr": 8000.0,
+        "match": true
+      },
+      {
+        "case_id": "CUST-007",
+        "expected_deduction_inr": 0,
+        "actual_deduction_inr": 0.0,
+        "match": true
+      },
+      {
+        "case_id": "CUST-013",
+        "expected_deduction_inr": 28500,
+        "actual_deduction_inr": 28500.0,
+        "match": true
+      }
+    ]
+  },
+  "retrieval": {
+    "n_case_dimension_pairs": 104,
+    "systems": {
+      "dense": {
+        "recall@1": 0.527,
+        "recall@3": 0.819,
+        "recall@5": 0.981,
+        "mrr": 0.815
+      },
+      "sparse": {
+        "recall@1": 0.811,
+        "recall@3": 0.905,
+        "recall@5": 1.0,
+        "mrr": 0.968
+      },
+      "fused": {
+        "recall@1": 0.724,
+        "recall@3": 0.981,
+        "recall@5": 1.0,
+        "mrr": 0.933
+      },
+      "reranked": {
+        "recall@1": 0.845,
+        "recall@3": 0.981,
+        "recall@5": 1.0,
+        "mrr": 1.0
+      }
+    },
+    "hybrid_rerank_recall@5_by_dimension": {
+      "category_sub_limits": 1.0,
+      "cosmetic_exclusion": 1.0,
+      "day_care_less_than_24h": 1.0,
+      "domiciliary_treatment_conditions": 1.0,
+      "experimental_unproven_treatment": 1.0,
+      "hospital_definition": 1.0,
+      "initial_waiting_period": 1.0,
+      "named_disease_first_year_waiting_period": 1.0,
+      "pre_existing_disease_waiting_period": 1.0,
+      "pre_post_hospitalization_window": 1.0
+    }
+  },
+  "citations": {
+    "gold_citation_precision": 1.0,
+    "gold_citations_checked": 99,
+    "wrong_citations": [],
+    "finding_citation_coverage": 1.0,
+    "verifier_claims": 128,
+    "verifier_supported_rate": 1.0,
+    "verifier_counts": {
+      "SUPPORTED": 128,
+      "UNSUPPORTED": 0,
+      "CONTRADICTED": 0
+    }
+  },
+  "controls": {
+    "by_type": {
+      "wrong_chunk": {
+        "injected": 102,
+        "detected": 102,
+        "missed": [],
+        "detection_rate": 1.0
+      },
+      "wrong_number": {
+        "injected": 65,
+        "detected": 65,
+        "missed": [],
+        "detection_rate": 1.0
+      },
+      "arithmetic_tamper": {
+        "injected": 21,
+        "detected": 21,
+        "missed": [],
+        "detection_rate": 1.0
+      },
+      "decision_flip": {
+        "injected": 26,
+        "detected": 26,
+        "missed": [],
+        "detection_rate": 1.0
+      }
+    },
+    "injected": 214,
+    "detected": 214,
+    "detection_rate": 1.0
+  },
+  "abstention": {
     "PUB-006": true,
     "PUB-011": true,
     "PUB-012": true,
     "CUST-005": true,
-    "CUST-006": true
+    "CUST-006": true,
+    "CUST-008": true,
+    "CUST-009": true,
+    "CUST-010": true
   },
-  "required_abstentions_pass": true,
+  "reproducibility": {
+    "identical": true,
+    "sha256_run1": "9554fce6387f8619f51a75cb86ee20446898b4d168674895f6bca1e76de6883c",
+    "sha256_run2": "9554fce6387f8619f51a75cb86ee20446898b4d168674895f6bca1e76de6883c"
+  },
+  "latency_ms": {
+    "p50": 1721.5890000079526,
+    "p95": 4814.236099991831,
+    "mean": 1956.4926076922206
+  },
+  "environment": {
+    "python": "3.13.9",
+    "dense_model": "BAAI/bge-small-en-v1.5",
+    "rerank_model": "BAAI/bge-reranker-base",
+    "top_k": [
+      15,
+      15,
+      10,
+      5
+    ]
+  },
   "per_case": [
     {
       "case_id": "PUB-001",
@@ -18,16 +275,19 @@
       "actual_decision": "ADMISSIBLE_WITH_LIMITS",
       "decision_correct": true,
       "confidence": 0.8,
-      "n_citations": 4,
-      "n_applicable_limits": 1,
-      "n_missing_evidence": 1,
+      "expected_deduction_inr": 10200,
+      "actual_deduction_inr": 10200.0,
+      "estimated_payable_inr": 153000.0,
+      "claims_total": 7,
+      "claims_supported": 7,
       "validation_status": "PASS",
-      "unsupported_claims": [],
+      "attempts": 1,
+      "n_assumptions": 5,
+      "n_unmodelled_risks": 0,
       "primary_dimensions": [
         "category_sub_limits"
       ],
-      "retrieval_hit_rate": 1.0,
-      "elapsed_ms": 35414.0
+      "latency_ms": 8958.0
     },
     {
       "case_id": "PUB-002",
@@ -35,16 +295,19 @@
       "actual_decision": "NOT_ADMISSIBLE",
       "decision_correct": true,
       "confidence": 0.85,
-      "n_citations": 3,
-      "n_applicable_limits": 0,
-      "n_missing_evidence": 0,
+      "expected_deduction_inr": 0,
+      "actual_deduction_inr": 0.0,
+      "estimated_payable_inr": 0.0,
+      "claims_total": 3,
+      "claims_supported": 3,
       "validation_status": "PASS",
-      "unsupported_claims": [],
+      "attempts": 1,
+      "n_assumptions": 1,
+      "n_unmodelled_risks": 0,
       "primary_dimensions": [
         "initial_waiting_period"
       ],
-      "retrieval_hit_rate": 1.0,
-      "elapsed_ms": 22831.8
+      "latency_ms": 1450.0
     },
     {
       "case_id": "PUB-003",
@@ -52,16 +315,19 @@
       "actual_decision": "NOT_ADMISSIBLE",
       "decision_correct": true,
       "confidence": 0.85,
-      "n_citations": 5,
-      "n_applicable_limits": 0,
-      "n_missing_evidence": 1,
+      "expected_deduction_inr": 0,
+      "actual_deduction_inr": 0.0,
+      "estimated_payable_inr": 0.0,
+      "claims_total": 5,
+      "claims_supported": 5,
       "validation_status": "PASS",
-      "unsupported_claims": [],
+      "attempts": 1,
+      "n_assumptions": 2,
+      "n_unmodelled_risks": 0,
       "primary_dimensions": [
         "pre_existing_disease_waiting_period"
       ],
-      "retrieval_hit_rate": 1.0,
-      "elapsed_ms": 36831.5
+      "latency_ms": 2910.8
     },
     {
       "case_id": "PUB-004",
@@ -69,17 +335,20 @@
       "actual_decision": "ADMISSIBLE_WITH_LIMITS",
       "decision_correct": true,
       "confidence": 0.8,
-      "n_citations": 3,
-      "n_applicable_limits": 1,
-      "n_missing_evidence": 0,
+      "expected_deduction_inr": 5000,
+      "actual_deduction_inr": 5000.0,
+      "estimated_payable_inr": 100000.0,
+      "claims_total": 5,
+      "claims_supported": 5,
       "validation_status": "PASS",
-      "unsupported_claims": [],
+      "attempts": 1,
+      "n_assumptions": 0,
+      "n_unmodelled_risks": 0,
       "primary_dimensions": [
         "domiciliary_treatment_conditions",
         "category_sub_limits"
       ],
-      "retrieval_hit_rate": 1.0,
-      "elapsed_ms": 22915.9
+      "latency_ms": 2999.2
     },
     {
       "case_id": "PUB-005",
@@ -87,16 +356,19 @@
       "actual_decision": "ADMISSIBLE",
       "decision_correct": true,
       "confidence": 0.85,
-      "n_citations": 6,
-      "n_applicable_limits": 0,
-      "n_missing_evidence": 1,
+      "expected_deduction_inr": 0,
+      "actual_deduction_inr": 0.0,
+      "estimated_payable_inr": 65000.0,
+      "claims_total": 6,
+      "claims_supported": 6,
       "validation_status": "PASS",
-      "unsupported_claims": [],
+      "attempts": 1,
+      "n_assumptions": 2,
+      "n_unmodelled_risks": 0,
       "primary_dimensions": [
         "day_care_less_than_24h"
       ],
-      "retrieval_hit_rate": 1.0,
-      "elapsed_ms": 45717.2
+      "latency_ms": 4814.2
     },
     {
       "case_id": "PUB-006",
@@ -104,16 +376,19 @@
       "actual_decision": "NEEDS_REVIEW",
       "decision_correct": true,
       "confidence": 0.4,
-      "n_citations": 4,
-      "n_applicable_limits": 1,
-      "n_missing_evidence": 3,
+      "expected_deduction_inr": null,
+      "actual_deduction_inr": 10000.0,
+      "estimated_payable_inr": null,
+      "claims_total": 6,
+      "claims_supported": 6,
       "validation_status": "PASS",
-      "unsupported_claims": [],
+      "attempts": 1,
+      "n_assumptions": 5,
+      "n_unmodelled_risks": 0,
       "primary_dimensions": [
         "hospital_definition"
       ],
-      "retrieval_hit_rate": 1.0,
-      "elapsed_ms": 30353.8
+      "latency_ms": 1450.5
     },
     {
       "case_id": "PUB-007",
@@ -121,16 +396,19 @@
       "actual_decision": "ADMISSIBLE_WITH_LIMITS",
       "decision_correct": true,
       "confidence": 0.8,
-      "n_citations": 6,
-      "n_applicable_limits": 3,
-      "n_missing_evidence": 1,
+      "expected_deduction_inr": 190500,
+      "actual_deduction_inr": 190500.0,
+      "estimated_payable_inr": 716000.0,
+      "claims_total": 9,
+      "claims_supported": 9,
       "validation_status": "PASS",
-      "unsupported_claims": [],
+      "attempts": 1,
+      "n_assumptions": 5,
+      "n_unmodelled_risks": 0,
       "primary_dimensions": [
         "category_sub_limits"
       ],
-      "retrieval_hit_rate": 1.0,
-      "elapsed_ms": 31033.2
+      "latency_ms": 1798.4
     },
     {
       "case_id": "PUB-008",
@@ -138,16 +416,19 @@
       "actual_decision": "NOT_ADMISSIBLE",
       "decision_correct": true,
       "confidence": 0.85,
-      "n_citations": 4,
-      "n_applicable_limits": 0,
-      "n_missing_evidence": 0,
+      "expected_deduction_inr": 0,
+      "actual_deduction_inr": 0.0,
+      "estimated_payable_inr": 0.0,
+      "claims_total": 4,
+      "claims_supported": 4,
       "validation_status": "PASS",
-      "unsupported_claims": [],
+      "attempts": 1,
+      "n_assumptions": 1,
+      "n_unmodelled_risks": 0,
       "primary_dimensions": [
         "cosmetic_exclusion"
       ],
-      "retrieval_hit_rate": 1.0,
-      "elapsed_ms": 30598.9
+      "latency_ms": 3611.2
     },
     {
       "case_id": "PUB-009",
@@ -155,16 +436,19 @@
       "actual_decision": "ADMISSIBLE",
       "decision_correct": true,
       "confidence": 0.85,
-      "n_citations": 4,
-      "n_applicable_limits": 0,
-      "n_missing_evidence": 0,
+      "expected_deduction_inr": 0,
+      "actual_deduction_inr": 0.0,
+      "estimated_payable_inr": 186800.0,
+      "claims_total": 4,
+      "claims_supported": 4,
       "validation_status": "PASS",
-      "unsupported_claims": [],
+      "attempts": 1,
+      "n_assumptions": 1,
+      "n_unmodelled_risks": 0,
       "primary_dimensions": [
         "pre_post_hospitalization_window"
       ],
-      "retrieval_hit_rate": 1.0,
-      "elapsed_ms": 29775.9
+      "latency_ms": 3.4
     },
     {
       "case_id": "PUB-010",
@@ -172,16 +456,19 @@
       "actual_decision": "ADMISSIBLE",
       "decision_correct": true,
       "confidence": 0.85,
-      "n_citations": 5,
-      "n_applicable_limits": 0,
-      "n_missing_evidence": 0,
+      "expected_deduction_inr": 0,
+      "actual_deduction_inr": 0.0,
+      "estimated_payable_inr": 80000.0,
+      "claims_total": 5,
+      "claims_supported": 5,
       "validation_status": "PASS",
-      "unsupported_claims": [],
+      "attempts": 1,
+      "n_assumptions": 1,
+      "n_unmodelled_risks": 0,
       "primary_dimensions": [
         "named_disease_first_year_waiting_period"
       ],
-      "retrieval_hit_rate": 1.0,
-      "elapsed_ms": 37933.2
+      "latency_ms": 3.8
     },
     {
       "case_id": "PUB-011",
@@ -189,16 +476,19 @@
       "actual_decision": "NEEDS_REVIEW",
       "decision_correct": true,
       "confidence": 0.37,
-      "n_citations": 3,
-      "n_applicable_limits": 0,
-      "n_missing_evidence": 2,
+      "expected_deduction_inr": null,
+      "actual_deduction_inr": 0.0,
+      "estimated_payable_inr": null,
+      "claims_total": 3,
+      "claims_supported": 3,
       "validation_status": "PASS",
-      "unsupported_claims": [],
+      "attempts": 1,
+      "n_assumptions": 0,
+      "n_unmodelled_risks": 0,
       "primary_dimensions": [
         "hospital_definition"
       ],
-      "retrieval_hit_rate": 1.0,
-      "elapsed_ms": 22671.6
+      "latency_ms": 3.1
     },
     {
       "case_id": "PUB-012",
@@ -206,16 +496,19 @@
       "actual_decision": "NEEDS_REVIEW",
       "decision_correct": true,
       "confidence": 0.37,
-      "n_citations": 4,
-      "n_applicable_limits": 0,
-      "n_missing_evidence": 1,
+      "expected_deduction_inr": null,
+      "actual_deduction_inr": 0.0,
+      "estimated_payable_inr": null,
+      "claims_total": 4,
+      "claims_supported": 4,
       "validation_status": "PASS",
-      "unsupported_claims": [],
+      "attempts": 1,
+      "n_assumptions": 1,
+      "n_unmodelled_risks": 0,
       "primary_dimensions": [
         "experimental_unproven_treatment"
       ],
-      "retrieval_hit_rate": 1.0,
-      "elapsed_ms": 27414.7
+      "latency_ms": 2628.5
     },
     {
       "case_id": "CUST-001",
@@ -223,16 +516,19 @@
       "actual_decision": "NOT_ADMISSIBLE",
       "decision_correct": true,
       "confidence": 0.85,
-      "n_citations": 4,
-      "n_applicable_limits": 0,
-      "n_missing_evidence": 0,
+      "expected_deduction_inr": 0,
+      "actual_deduction_inr": 0.0,
+      "estimated_payable_inr": 0.0,
+      "claims_total": 4,
+      "claims_supported": 4,
       "validation_status": "PASS",
-      "unsupported_claims": [],
+      "attempts": 1,
+      "n_assumptions": 1,
+      "n_unmodelled_risks": 0,
       "primary_dimensions": [
         "named_disease_first_year_waiting_period"
       ],
-      "retrieval_hit_rate": 1.0,
-      "elapsed_ms": 32102.7
+      "latency_ms": 1826.8
     },
     {
       "case_id": "CUST-002",
@@ -240,16 +536,19 @@
       "actual_decision": "ADMISSIBLE",
       "decision_correct": true,
       "confidence": 0.85,
-      "n_citations": 5,
-      "n_applicable_limits": 0,
-      "n_missing_evidence": 1,
+      "expected_deduction_inr": 0,
+      "actual_deduction_inr": 0.0,
+      "estimated_payable_inr": 143000.0,
+      "claims_total": 5,
+      "claims_supported": 5,
       "validation_status": "PASS",
-      "unsupported_claims": [],
+      "attempts": 1,
+      "n_assumptions": 2,
+      "n_unmodelled_risks": 0,
       "primary_dimensions": [
         "named_disease_first_year_waiting_period"
       ],
-      "retrieval_hit_rate": 1.0,
-      "elapsed_ms": 38120.8
+      "latency_ms": 1721.6
     },
     {
       "case_id": "CUST-003",
@@ -257,16 +556,20 @@
       "actual_decision": "PARTIALLY_ADMISSIBLE",
       "decision_correct": true,
       "confidence": 0.75,
-      "n_citations": 5,
-      "n_applicable_limits": 2,
-      "n_missing_evidence": 0,
+      "expected_deduction_inr": 17000,
+      "actual_deduction_inr": 17000.0,
+      "estimated_payable_inr": 136000.0,
+      "claims_total": 7,
+      "claims_supported": 7,
       "validation_status": "PASS",
-      "unsupported_claims": [],
+      "attempts": 1,
+      "n_assumptions": 4,
+      "n_unmodelled_risks": 0,
       "primary_dimensions": [
-        "pre_post_hospitalization_window"
+        "pre_post_hospitalization_window",
+        "category_sub_limits"
       ],
-      "retrieval_hit_rate": 1.0,
-      "elapsed_ms": 30353.2
+      "latency_ms": 1680.0
     },
     {
       "case_id": "CUST-004",
@@ -274,16 +577,19 @@
       "actual_decision": "ADMISSIBLE_WITH_LIMITS",
       "decision_correct": true,
       "confidence": 0.8,
-      "n_citations": 5,
-      "n_applicable_limits": 1,
-      "n_missing_evidence": 1,
+      "expected_deduction_inr": 8000,
+      "actual_deduction_inr": 8000.0,
+      "estimated_payable_inr": 129800.0,
+      "claims_total": 7,
+      "claims_supported": 7,
       "validation_status": "PASS",
-      "unsupported_claims": [],
+      "attempts": 1,
+      "n_assumptions": 5,
+      "n_unmodelled_risks": 0,
       "primary_dimensions": [
         "category_sub_limits"
       ],
-      "retrieval_hit_rate": 1.0,
-      "elapsed_ms": 36327.2
+      "latency_ms": 1867.0
     },
     {
       "case_id": "CUST-005",
@@ -291,33 +597,201 @@
       "actual_decision": "NEEDS_REVIEW",
       "decision_correct": true,
       "confidence": 0.37,
-      "n_citations": 4,
-      "n_applicable_limits": 0,
-      "n_missing_evidence": 1,
+      "expected_deduction_inr": null,
+      "actual_deduction_inr": 0.0,
+      "estimated_payable_inr": null,
+      "claims_total": 4,
+      "claims_supported": 4,
       "validation_status": "PASS",
-      "unsupported_claims": [],
+      "attempts": 1,
+      "n_assumptions": 1,
+      "n_unmodelled_risks": 0,
       "primary_dimensions": [
         "experimental_unproven_treatment"
       ],
-      "retrieval_hit_rate": 1.0,
-      "elapsed_ms": 27338.2
+      "latency_ms": 1785.4
     },
     {
       "case_id": "CUST-006",
       "expected_decision": "NEEDS_REVIEW",
       "actual_decision": "NEEDS_REVIEW",
       "decision_correct": true,
-      "confidence": 0.37,
-      "n_citations": 2,
-      "n_applicable_limits": 0,
-      "n_missing_evidence": 1,
+      "confidence": 0.34,
+      "expected_deduction_inr": null,
+      "actual_deduction_inr": 0.0,
+      "estimated_payable_inr": null,
+      "claims_total": 3,
+      "claims_supported": 3,
       "validation_status": "PASS",
-      "unsupported_claims": [],
+      "attempts": 1,
+      "n_assumptions": 0,
+      "n_unmodelled_risks": 1,
       "primary_dimensions": [
-        "domiciliary_treatment_conditions"
+        "domiciliary_treatment_conditions",
+        "unmodelled_policy_risk"
       ],
-      "retrieval_hit_rate": 1.0,
-      "elapsed_ms": 22893.8
+      "latency_ms": 1117.1
+    },
+    {
+      "case_id": "CUST-007",
+      "expected_decision": "ADMISSIBLE",
+      "actual_decision": "ADMISSIBLE",
+      "decision_correct": true,
+      "confidence": 0.85,
+      "expected_deduction_inr": 0,
+      "actual_deduction_inr": 0.0,
+      "estimated_payable_inr": 225900.0,
+      "claims_total": 4,
+      "claims_supported": 4,
+      "validation_status": "PASS",
+      "attempts": 1,
+      "n_assumptions": 1,
+      "n_unmodelled_risks": 0,
+      "primary_dimensions": [
+        "pre_existing_disease_waiting_period"
+      ],
+      "latency_ms": 1835.2
+    },
+    {
+      "case_id": "CUST-008",
+      "expected_decision": "NEEDS_REVIEW",
+      "actual_decision": "NEEDS_REVIEW",
+      "decision_correct": true,
+      "confidence": 0.37,
+      "expected_deduction_inr": null,
+      "actual_deduction_inr": 0.0,
+      "estimated_payable_inr": null,
+      "claims_total": 4,
+      "claims_supported": 4,
+      "validation_status": "PASS",
+      "attempts": 1,
+      "n_assumptions": 1,
+      "n_unmodelled_risks": 1,
+      "primary_dimensions": [
+        "unmodelled_policy_risk"
+      ],
+      "latency_ms": 1722.1
+    },
+    {
+      "case_id": "CUST-009",
+      "expected_decision": "NEEDS_REVIEW",
+      "actual_decision": "NEEDS_REVIEW",
+      "decision_correct": true,
+      "confidence": 0.37,
+      "expected_deduction_inr": null,
+      "actual_deduction_inr": 0.0,
+      "estimated_payable_inr": null,
+      "claims_total": 4,
+      "claims_supported": 4,
+      "validation_status": "PASS",
+      "attempts": 1,
+      "n_assumptions": 1,
+      "n_unmodelled_risks": 1,
+      "primary_dimensions": [
+        "unmodelled_policy_risk"
+      ],
+      "latency_ms": 1480.9
+    },
+    {
+      "case_id": "CUST-010",
+      "expected_decision": "NEEDS_REVIEW",
+      "actual_decision": "NEEDS_REVIEW",
+      "decision_correct": true,
+      "confidence": 0.37,
+      "expected_deduction_inr": null,
+      "actual_deduction_inr": 0.0,
+      "estimated_payable_inr": null,
+      "claims_total": 4,
+      "claims_supported": 4,
+      "validation_status": "PASS",
+      "attempts": 1,
+      "n_assumptions": 1,
+      "n_unmodelled_risks": 0,
+      "primary_dimensions": [
+        "day_care_less_than_24h"
+      ],
+      "latency_ms": 1907.7
+    },
+    {
+      "case_id": "CUST-011",
+      "expected_decision": "NOT_ADMISSIBLE",
+      "actual_decision": "NOT_ADMISSIBLE",
+      "decision_correct": true,
+      "confidence": 0.85,
+      "expected_deduction_inr": 0,
+      "actual_deduction_inr": 0.0,
+      "estimated_payable_inr": 0.0,
+      "claims_total": 4,
+      "claims_supported": 4,
+      "validation_status": "PASS",
+      "attempts": 1,
+      "n_assumptions": 1,
+      "n_unmodelled_risks": 0,
+      "primary_dimensions": [
+        "initial_waiting_period",
+        "cosmetic_exclusion"
+      ],
+      "latency_ms": 1590.6
+    },
+    {
+      "case_id": "CUST-012",
+      "expected_decision": "NOT_ADMISSIBLE",
+      "actual_decision": "NOT_ADMISSIBLE",
+      "decision_correct": true,
+      "confidence": 0.75,
+      "expected_deduction_inr": 0,
+      "actual_deduction_inr": 0.0,
+      "estimated_payable_inr": 0.0,
+      "claims_total": 4,
+      "claims_supported": 4,
+      "validation_status": "PASS",
+      "attempts": 1,
+      "n_assumptions": 0,
+      "n_unmodelled_risks": 0,
+      "primary_dimensions": [
+        "cosmetic_exclusion"
+      ],
+      "latency_ms": 3.4
+    },
+    {
+      "case_id": "CUST-013",
+      "expected_decision": "ADMISSIBLE_WITH_LIMITS",
+      "actual_decision": "ADMISSIBLE_WITH_LIMITS",
+      "decision_correct": true,
+      "confidence": 0.8,
+      "expected_deduction_inr": 28500,
+      "actual_deduction_inr": 28500.0,
+      "estimated_payable_inr": 135000.0,
+      "claims_total": 8,
+      "claims_supported": 8,
+      "validation_status": "PASS",
+      "attempts": 1,
+      "n_assumptions": 4,
+      "n_unmodelled_risks": 0,
+      "primary_dimensions": [
+        "category_sub_limits"
+      ],
+      "latency_ms": 1696.5
+    },
+    {
+      "case_id": "CUST-014",
+      "expected_decision": "NOT_ADMISSIBLE",
+      "actual_decision": "NOT_ADMISSIBLE",
+      "decision_correct": true,
+      "confidence": 0.85,
+      "expected_deduction_inr": 0,
+      "actual_deduction_inr": 0.0,
+      "estimated_payable_inr": 0.0,
+      "claims_total": 5,
+      "claims_supported": 5,
+      "validation_status": "PASS",
+      "attempts": 1,
+      "n_assumptions": 1,
+      "n_unmodelled_risks": 0,
+      "primary_dimensions": [
+        "named_disease_first_year_waiting_period"
+      ],
+      "latency_ms": 3.4
     }
   ]
 }

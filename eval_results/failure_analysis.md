@@ -1,9 +1,9 @@
 # Failure Analysis
 
-Four failures found during development (via direct pipeline smoke-testing
-against the supplied cases, not just eyeballing code), their root causes,
-and the fix applied. All four are still guarded by the unit tests in
-`tests/` so they can't silently regress.
+Eleven failures found during development, their root causes, and the fix applied. #1-#4 came from smoke-testing
+the supplied cases; #5-#10 were found by the stronger evaluation (hand-derived payable amounts, the claim -> citation ->
+chunk verifier, new edge cases); #11 records limitations found by reading the policy closely. Fixed items are guarded by
+unit tests and by gates in the evaluation, so they cannot silently regress.
 
 ## 1. Chunker: a 3-letter connector word was detected as a section heading
 
@@ -62,7 +62,7 @@ independent of which dimension it relates to. `decision_agent.py` treats a
 non-empty `_explicit_unknowns` list as a hard, first-priority reason to
 return `NEEDS_REVIEW`, regardless of what any individual dimension
 concluded. This is a *generic* rule (not a PUB-006-specific patch), so it
-also correctly reinforces PUB-011's `hospital_registered: null`.
+also correctly reinforces PUB-011's `hospital_registered: null`. (Precedence was later refined: see #9 -- a verified exclusion outranks it.)
 Covered by `tests/test_decision_agent.py::test_explicit_null_evidence_forces_needs_review_even_if_no_finding_is_insufficient`.
 
 ## 4. Reasoning: missing (optional) timing metadata over-triggered abstention/deductions
@@ -92,6 +92,63 @@ window pending documentation. Only a *confirmed* window violation
 `CUST-003`) produces a deduction/`PARTIALLY_ADMISSIBLE`. This is the
 proportionality principle documented in `ARCHITECTURE.md`: abstention and
 deductions are reserved for confirmed problems, not merely-optional gaps.
+
+## 5. Payable amounts were wrong even though every decision label was right
+
+**Found by**: the new payable-amount check (hand-derived expected deductions, `eval/expected_outcomes.py`). Decision accuracy alone was 100% and would have hidden this.
+
+**Symptom**: PUB-007 (large cancer bill) reported deductions of INR 130,000 instead of INR 190,500: the 40% cap on medicines/diagnostics was never applied, and a 75% "package" cap was applied in its place.
+
+**Root cause**: two independent extraction defects in `agents/rules_extract.py`. (a) The regex required the wording "40% **of** Sum Insured" but the policy says "40% Sum Insured" for that clause, so it never matched. (b) Keywords were bound to numbers by a 120-character window, which can straddle two neighbouring clauses and pick up the wrong figure.
+
+**Fix**: percentages and flat caps are now extracted **within a single clause** (split on numbered items, `NB` notes and `a)`/`b)` sub-points), with "of" optional. Covered by `tests/test_extraction_and_unknown.py::test_every_category_limit_is_extracted_from_the_real_policy_text`.
+
+## 6. The ambulance cap ("lower of 1% and Rs 1000") was silently ignored
+
+**Found by**: same amount check (PUB-001 should lose INR 200 on a INR 1,200 ambulance bill; it lost nothing).
+
+**Root cause**: the rupee figure sat more than the old window's distance from the word "Ambulance", so only the percentage (INR 5,000) was used and the "whichever is less" flat cap never applied.
+
+**Fix**: the clause-level extraction above; the cap is now `min(1% of SI, Rs 1000)`. Locked in by the same test plus the amount-exactness gate in the evaluation (11/11 hand-derived deductions must match).
+
+## 7. A limit was cited to the wrong policy chunk
+
+**Found by**: the new claim -> citation -> chunk verifier (SUPPORTED / UNSUPPORTED / CONTRADICTED). The old validator only checked that a cited chunk id had been retrieved, so it could never notice this.
+
+**Symptom**: the ambulance limit cited `extensions-001`, a chunk that merely *mentions* ambulances, while the limit itself lives in `what_we_cover-005`. The verifier reported `UNSUPPORTED: no percentage limit found near 'Ambulance' in the chunk`, the retry loop re-retrieved, still failed, and the case was (correctly, given the citation) downgraded to NEEDS_REVIEW.
+
+**Root cause**: `_find_source()` returned the first retrieved chunk containing the keyword anywhere.
+
+**Fix**: limit citations now pick the chunk whose *clause* actually states the limit. After the fix all 128 claims across 26 cases verify, and gold-citation precision is 100%.
+
+## 8. The 75% "Any One Illness" package cap was applied to ordinary claims
+
+**Found by**: reading the clause while hand-deriving PUB-007's expected deduction.
+
+**Root cause**: NB3 restricts expenses "under **agreed package charges**" to 75% of the sum insured. No supplied case says a package was agreed, yet the cap was applied to every bill.
+
+**Fix**: the cap is applied only when the case states `package_charges_agreed`; otherwise the response lists an explicit assumption ("no agreed package charges stated, so the 75% cap is not applied"). Covered by `test_package_cap_only_applies_when_a_package_was_agreed`.
+
+## 9. An excluded claim could be turned into NEEDS_REVIEW by an unrelated open question
+
+**Found by**: designing CUST-012 (cosmetic surgery, established exclusion, plus an unresolved hospital-registration flag).
+
+**Root cause**: decision precedence put "anything unresolved" ahead of "a verified exclusion", so a claim with a definite ground for rejection was reported as undecidable.
+
+**Fix**: precedence is now missing-dates > verified exclusion > unresolved evidence > limits > admissible. A confirmed exclusion still wins, at reduced confidence (0.75) and with the open questions listed. Covered by `test_confirmed_exclusion_outranks_unresolved_side_questions`.
+
+## 10. The unknown-policy-dimension check produced a false alarm
+
+**Found by**: running all 18 cases after adding the check; PUB-004 flipped to NEEDS_REVIEW.
+
+**Root cause**: the check matched the word "domiciliary" in the procedure ("Domiciliary treatment") against exclusion item 17, but "domiciliary" is a *treatment mode* already handled by a modelled dimension, not a disease named by an exclusion.
+
+**Fix**: treatment-mode words (domiciliary, day, care, inpatient, ...) and generic clinical words (infection, acute, therapy, ...) are excluded from matching, and clauses already cited by a modelled dimension are skipped. Covered by `test_generic_words_do_not_trigger_the_unknown_dimension` and `test_clauses_already_used_by_a_modelled_check_are_not_reflagged`.
+
+## 11. Two limitations discovered by reading the policy more closely (not fixed)
+
+- **Exclusion items 18-20 belong to item 17.** In the PDF, "17. Any expense under Domiciliary Hospitalisation for" is followed by items 18 (pre/post hospitalisation), 19 ("treatment not exceeding three days") and 20 (the disease list: asthma, bronchitis, diabetes, ...). Read together they restrict *domiciliary* treatment only. The chunker splits them into separate top-level items. The unknown-dimension check still surfaces item 20 for an asthma claim (CUST-006), but a re-chunk that keeps 17-20 together would model this correctly. Not done: the numbering is the only signal and a generic rule for it is fragile.
+- **The "Normal Room" limit is ambiguous.** The ICU clause says "per day"; the room clause does not. The system applies it per day of stay and says so in `assumptions` on every affected answer. If the insurer meant per stay, PUB-001's deduction would be INR 25,000, not INR 10,200.
 
 ## Residual limitations (not failures, but worth naming)
 

@@ -64,6 +64,7 @@ class HybridRetriever:
         self.dense = DenseStore(self._order, dense_vectors)
         self.sparse = SparseStore(self._order, self._texts)
         self._dense_vectors = dense_vectors
+        self._stage_cache: dict[tuple, dict] = {}
 
     # -- construction -----------------------------------------------------
     @classmethod
@@ -95,6 +96,43 @@ class HybridRetriever:
         return retriever
 
     # -- search -------------------------------------------------------------
+    def search_stages(
+        self,
+        query: str,
+        top_k_dense: int | None = None,
+        top_k_sparse: int | None = None,
+        top_k_fused: int | None = None,
+        top_k_final: int | None = None,
+    ) -> dict[str, list[tuple[str, float]]]:
+        """Ranked (chunk_id, score) lists after every retrieval stage.
+
+        Exposed so evaluation can ablate the pipeline (dense only, BM25 only,
+        fused, fused + rerank) and measure what each stage contributes.
+        """
+        top_k_dense = top_k_dense or settings.top_k_dense
+        top_k_sparse = top_k_sparse or settings.top_k_sparse
+        top_k_fused = top_k_fused or settings.top_k_fused
+        top_k_final = top_k_final or settings.top_k_final
+
+        # Retrieval is a pure function of (query, k's): most dimension queries do
+        # not depend on case facts, so identical queries recur across requests.
+        key = (query, top_k_dense, top_k_sparse, top_k_fused, top_k_final)
+        if key in self._stage_cache:
+            return self._stage_cache[key]
+
+        dense_hits = self.dense.search(embed_query(query), top_k_dense)
+        sparse_hits = self.sparse.search(query, top_k_sparse)
+        fused = reciprocal_rank_fusion([dense_hits, sparse_hits], top_k=top_k_fused)
+        candidates = [(cid, self.chunk_meta[cid]["text"]) for cid, _ in fused]
+        reranked = rerank_fn(query, candidates)[:top_k_final] if candidates else []
+        stages = {"dense": dense_hits, "sparse": sparse_hits, "fused": fused, "reranked": reranked}
+        if len(self._stage_cache) < 2048:
+            self._stage_cache[key] = stages
+        return stages
+
+    def clear_cache(self) -> None:
+        self._stage_cache.clear()
+
     def search(
         self,
         query: str,
@@ -103,30 +141,15 @@ class HybridRetriever:
         top_k_fused: int | None = None,
         top_k_final: int | None = None,
     ) -> list[RetrievalResult]:
-        top_k_dense = top_k_dense or settings.top_k_dense
-        top_k_sparse = top_k_sparse or settings.top_k_sparse
-        top_k_fused = top_k_fused or settings.top_k_fused
-        top_k_final = top_k_final or settings.top_k_final
-
-        q_vec = embed_query(query)
-        dense_hits = self.dense.search(q_vec, top_k_dense)
-        sparse_hits = self.sparse.search(query, top_k_sparse)
-
-        dense_rank = {cid: r for r, (cid, _) in enumerate(dense_hits, start=1)}
-        dense_score = dict(dense_hits)
-        sparse_rank = {cid: r for r, (cid, _) in enumerate(sparse_hits, start=1)}
-        sparse_score = dict(sparse_hits)
-
-        fused = reciprocal_rank_fusion([dense_hits, sparse_hits], top_k=top_k_fused)
-        fused_score = dict(fused)
-        if not fused:
-            return []
-
-        candidates = [(cid, self.chunk_meta[cid]["text"]) for cid, _ in fused]
-        reranked = rerank_fn(query, candidates)[:top_k_final]
+        stages = self.search_stages(query, top_k_dense, top_k_sparse, top_k_fused, top_k_final)
+        dense_rank = {cid: r for r, (cid, _) in enumerate(stages["dense"], start=1)}
+        dense_score = dict(stages["dense"])
+        sparse_rank = {cid: r for r, (cid, _) in enumerate(stages["sparse"], start=1)}
+        sparse_score = dict(stages["sparse"])
+        fused_score = dict(stages["fused"])
 
         results: list[RetrievalResult] = []
-        for chunk_id, rerank_score in reranked:
+        for chunk_id, rerank_score in stages["reranked"]:
             meta = self.chunk_meta[chunk_id]
             results.append(
                 RetrievalResult(

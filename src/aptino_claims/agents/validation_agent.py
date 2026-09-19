@@ -1,68 +1,60 @@
 """Validation Agent.
 
-Verifies that every material citation actually came from the evidence that
-was retrieved for that dimension (catches a mismatched/hallucinated
-citation) and that any numeric figure named in a finding's statement
-literally appears in the cited chunk's text (catches an unsupported
-number). On FAIL, the case is downgraded to NEEDS_REVIEW -- the system's
-one revision/retry behavior, applied because there is nothing left to
-re-retrieve: the evidence already didn't support the claim.
+Turns every material statement into an auditable chain
+
+    decision claim -> citation -> retrieved policy chunk -> evidence check -> verdict
+
+and records SUPPORTED / UNSUPPORTED / CONTRADICTED per claim (see
+`verification.py` for how each assertion type is checked). The overall
+status is FAIL if any claim is UNSUPPORTED or CONTRADICTED.
+
+On FAIL the orchestrator gets one chance to repair the problem with a
+widened re-retrieval (a clause may simply have ranked outside the first
+top-k). If it still fails, the decision is downgraded to NEEDS_REVIEW: the
+system abstains rather than presenting a claim its own evidence check
+could not verify.
 """
 from __future__ import annotations
 
-import re
 import time
 
+from ..retrieval.retriever import HybridRetriever
 from .state import CaseState, DecisionStatus, ValidationOutcome
-
-_NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
-
-
-def _numbers_supported(claim_label: str, cited_text: str) -> bool:
-    """Check the short citation *label* (e.g. "30-day initial waiting
-    period"), not the full finding statement. The label only ever contains
-    the policy threshold number itself (parsed from the cited text), never
-    a case-derived figure (elapsed days, deduction amounts, ...), so any
-    number appearing there must also appear in the cited text.
-    """
-    stmt_numbers = set(_NUMBER_RE.findall(claim_label))
-    if not stmt_numbers:
-        return True
-    text_numbers = set(_NUMBER_RE.findall(cited_text))
-    unsupported = {n for n in stmt_numbers if n not in text_numbers}
-    return not unsupported
+from .verification import verify_state
 
 
-def run(state: CaseState) -> CaseState:
+def run(state: CaseState, retriever: HybridRetriever, final_attempt: bool = True) -> CaseState:
     started = time.perf_counter()
-    unsupported_claims: list[str] = []
+    corpus = {cid: meta["text"] for cid, meta in retriever.chunk_meta.items()}
+    rows = verify_state(state, corpus)
 
-    all_evidence_ids = {ev.chunk_id for evs in state.evidence_by_dimension.values() for ev in evs}
+    counts = {"SUPPORTED": 0, "UNSUPPORTED": 0, "CONTRADICTED": 0}
+    for r in rows:
+        counts[r.verdict] += 1
+    problems = [r for r in rows if r.verdict != "SUPPORTED"]
+    unsupported = [f"[{r.dimension}] {r.verdict}: {r.claim} ({r.chunk_id or 'no chunk'}) - {r.reason}" for r in problems]
+    status = "FAIL" if problems else "PASS"
 
-    for finding in state.findings:
-        if not finding.applicable or not finding.citations:
-            continue
-        for citation in finding.citations:
-            if citation.chunk_id not in all_evidence_ids:
-                unsupported_claims.append(f"[{finding.dimension}] cites chunk {citation.chunk_id} which was never retrieved")
-                continue
-            evidence_items = state.evidence_by_dimension.get(finding.dimension, [])
-            cited_item = next((e for e in evidence_items if e.chunk_id == citation.chunk_id), None)
-            if cited_item and not _numbers_supported(citation.claim, cited_item.text):
-                unsupported_claims.append(f"[{finding.dimension}] statement contains a figure not present in cited chunk {citation.chunk_id}")
+    state.validation = ValidationOutcome(
+        status=status, unsupported_claims=unsupported, verifications=rows, counts=counts, attempts=state.attempt,
+        notes=f"{counts['SUPPORTED']}/{len(rows)} claims verified against retrieved policy text.",
+    )
 
-    status = "FAIL" if unsupported_claims else "PASS"
-    state.validation = ValidationOutcome(status=status, unsupported_claims=unsupported_claims)
-
-    if status == "FAIL" and state.decision != DecisionStatus.NEEDS_REVIEW:
+    if status == "FAIL" and final_attempt and state.decision != DecisionStatus.NEEDS_REVIEW:
         state.decision = DecisionStatus.NEEDS_REVIEW
         state.confidence = min(state.confidence, 0.3)
-        state.rationale += "\n\nDowngraded to NEEDS_REVIEW: validation found citation(s) not fully supported by retrieved evidence."
+        state.rationale += (
+            "\n\nDowngraded to NEEDS_REVIEW: evidence verification could not confirm "
+            f"{len(problems)} claim(s) even after a widened re-retrieval."
+        )
 
     state.log(
         "ValidationAgent",
-        "verify_citations",
-        f"status={status} unsupported={len(unsupported_claims)}",
+        "verify_claims_against_evidence",
+        f"status={status}; {counts['SUPPORTED']} supported, {counts['UNSUPPORTED']} unsupported, {counts['CONTRADICTED']} contradicted "
+        f"of {len(rows)} claims",
         started_at=started,
+        reads=["findings", "applicable_limits", "decision", "evidence_by_dimension"],
+        writes=["validation"] + (["decision"] if status == "FAIL" and final_attempt else []),
     )
     return state

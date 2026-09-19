@@ -3,6 +3,11 @@
 Agents exchange `CaseState` (structured, typed) rather than free-form text;
 `CaseState.to_response()` projects the final state onto the public decision
 contract from the assignment brief.
+
+Every material citation carries a machine-checkable `assertion` (what the
+finding claims the cited chunk says). The Validation Agent verifies each
+assertion against the retrieved chunk text and records a SUPPORTED /
+UNSUPPORTED / CONTRADICTED verdict per claim.
 """
 from __future__ import annotations
 
@@ -28,6 +33,7 @@ class Citation(BaseModel):
     section: str
     chunk_id: str
     rerank_score: float | None = None
+    assertion: dict[str, Any] | None = None
 
 
 class EvidenceItem(BaseModel):
@@ -52,6 +58,7 @@ class Finding(BaseModel):
     status: Literal["SUPPORTS_ADMISSIBLE", "SUPPORTS_LIMIT", "SUPPORTS_EXCLUSION", "INSUFFICIENT_EVIDENCE", "NOT_APPLICABLE"]
     citations: list[Citation] = Field(default_factory=list)
     confidence: float = 0.5
+    assumptions: list[str] = Field(default_factory=list)
 
 
 class ApplicableLimit(BaseModel):
@@ -66,10 +73,38 @@ class MissingEvidence(BaseModel):
     reason: str
 
 
+Verdict = Literal["SUPPORTED", "UNSUPPORTED", "CONTRADICTED"]
+
+
+class CheckResult(BaseModel):
+    name: str
+    passed: bool
+    detail: str = ""
+
+
+class ClaimVerification(BaseModel):
+    """One row of the decision-claim -> citation -> chunk -> verdict audit trail."""
+
+    claim_id: str
+    kind: Literal["policy_claim", "limit_claim", "decision_claim"]
+    dimension: str
+    claim: str
+    chunk_id: str | None = None
+    page: int | None = None
+    section: str | None = None
+    verdict: Verdict
+    reason: str
+    checks: list[CheckResult] = Field(default_factory=list)
+    excerpt: str | None = None
+
+
 class ValidationOutcome(BaseModel):
     status: Literal["PASS", "FAIL"]
     unsupported_claims: list[str] = Field(default_factory=list)
     notes: str = ""
+    verifications: list[ClaimVerification] = Field(default_factory=list)
+    counts: dict[str, int] = Field(default_factory=dict)
+    attempts: int = 1
 
 
 class TraceEvent(BaseModel):
@@ -78,6 +113,19 @@ class TraceEvent(BaseModel):
     detail: str = ""
     elapsed_ms: float = 0.0
     retrieval_count: int | None = None
+    attempt: int = 1
+    reads: list[str] = Field(default_factory=list)
+    writes: list[str] = Field(default_factory=list)
+    snapshot: dict[str, Any] = Field(default_factory=dict)
+
+
+class Handoff(BaseModel):
+    """A visible state transition between two agents (including retries)."""
+
+    from_agent: str
+    to_agent: str
+    payload: str
+    kind: Literal["forward", "retry"] = "forward"
 
 
 class CaseState(BaseModel):
@@ -101,13 +149,65 @@ class CaseState(BaseModel):
 
     validation: ValidationOutcome | None = None
     trace: list[TraceEvent] = Field(default_factory=list)
+    handoffs: list[Handoff] = Field(default_factory=list)
+    attempt: int = 1
+    widen_retrieval: bool = False
 
-    def log(self, agent: str, action: str, detail: str = "", retrieval_count: int | None = None, started_at: float | None = None) -> None:
+    # -- state bookkeeping --------------------------------------------------
+    def snapshot(self) -> dict[str, Any]:
+        """Compact counters describing what the shared state holds right now."""
+        return {
+            "facts": len(self.facts),
+            "dimensions": len(self.dimensions),
+            "evidence_chunks": sum(len(v) for v in self.evidence_by_dimension.values()),
+            "findings": len(self.findings),
+            "limits": len(self.applicable_limits),
+            "missing": len(self.missing_fields),
+            "decision": self.decision.value if self.decision else None,
+            "validation": self.validation.status if self.validation else None,
+        }
+
+    def log(
+        self,
+        agent: str,
+        action: str,
+        detail: str = "",
+        retrieval_count: int | None = None,
+        started_at: float | None = None,
+        reads: list[str] | None = None,
+        writes: list[str] | None = None,
+    ) -> None:
         elapsed_ms = (time.perf_counter() - started_at) * 1000 if started_at is not None else 0.0
         self.trace.append(
-            TraceEvent(agent=agent, action=action, detail=detail, elapsed_ms=round(elapsed_ms, 2), retrieval_count=retrieval_count)
+            TraceEvent(
+                agent=agent,
+                action=action,
+                detail=detail,
+                elapsed_ms=round(elapsed_ms, 2),
+                retrieval_count=retrieval_count,
+                attempt=self.attempt,
+                reads=reads or [],
+                writes=writes or [],
+                snapshot=self.snapshot(),
+            )
         )
 
+    def hand_off(self, from_agent: str, to_agent: str, payload: str, kind: Literal["forward", "retry"] = "forward") -> None:
+        self.handoffs.append(Handoff(from_agent=from_agent, to_agent=to_agent, payload=payload, kind=kind))
+
+    def reset_analysis(self) -> None:
+        """Clear everything derived from evidence so a retry recomputes it cleanly."""
+        self.evidence_by_dimension = {}
+        self.findings = []
+        self.applicable_limits = []
+        self.missing_fields = [m for m in self.missing_fields if m.field.startswith("evidence_context.") or m.field in {
+            "policy_start_date/claim_date", "sum_insured_inr"}]
+        self.decision = None
+        self.confidence = 0.0
+        self.rationale = ""
+        self.validation = None
+
+    # -- projections ----------------------------------------------------------
     def all_citations(self) -> list[Citation]:
         seen: dict[tuple[str, str], Citation] = {}
         for finding in self.findings:
@@ -146,6 +246,7 @@ class CaseState(BaseModel):
     def to_response(self) -> dict:
         key_findings = [f.statement for f in self.findings if f.applicable]
         decision = self.decision.value if self.decision else DecisionStatus.NEEDS_REVIEW.value
+        validation = self.validation.model_dump() if self.validation else {"status": "PASS", "unsupported_claims": []}
         return {
             "case_id": self.case_id,
             "decision": decision,
@@ -159,8 +260,17 @@ class CaseState(BaseModel):
                     "confidence": f.confidence,
                     "applicable": f.applicable,
                     "chunk_ids": [c.chunk_id for c in f.citations],
+                    "assumptions": f.assumptions,
                 }
                 for f in self.findings
+            ],
+            "assumptions": [
+                {"dimension": f.dimension, "assumption": a} for f in self.findings for a in f.assumptions
+            ],
+            "unmodelled_policy_risks": [
+                {"statement": f.statement, "chunk_ids": [c.chunk_id for c in f.citations]}
+                for f in self.findings
+                if f.dimension == "unmodelled_policy_risk" and f.applicable
             ],
             "amounts": self._amounts(decision),
             "applicable_limits": [
@@ -169,7 +279,8 @@ class CaseState(BaseModel):
             ],
             "missing_evidence": [m.model_dump() for m in self.missing_fields],
             "citations": [{**c.model_dump(), "excerpt": self._excerpt_for(c.chunk_id)} for c in self.all_citations()],
-            "validation": self.validation.model_dump() if self.validation else {"status": "PASS", "unsupported_claims": []},
+            "validation": validation,
             "rationale": self.rationale,
             "trace": [t.model_dump() for t in self.trace],
+            "handoffs": [h.model_dump() for h in self.handoffs],
         }

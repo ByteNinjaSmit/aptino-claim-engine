@@ -10,6 +10,7 @@ what lets the Decision Agent abstain safely.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Callable
 
@@ -27,8 +28,17 @@ def to_evidence_items(results: list[RetrievalResult]) -> list[EvidenceItem]:
             for r in results]
 
 
-def cite(ev: EvidenceItem, claim: str) -> Citation:
-    return Citation(claim=claim, page=ev.page_start, section=ev.section, chunk_id=ev.chunk_id, rerank_score=ev.rerank_score)
+def cite(ev: EvidenceItem, claim: str, assertion: dict | None = None) -> Citation:
+    return Citation(claim=claim, page=ev.page_start, section=ev.section, chunk_id=ev.chunk_id,
+                    rerank_score=ev.rerank_score, assertion=assertion)
+
+
+def threshold(*pairs: tuple[int, str], must_contain: list[str] | None = None) -> dict:
+    return {"type": "threshold", "values": [{"value": v, "unit": u} for v, u in pairs], "must_contain": must_contain or []}
+
+
+def phrases(*must: str, any_of: list[list[str]] | None = None) -> dict:
+    return {"type": "phrases", "must_contain": list(must), "any_of": any_of or []}
 
 
 def _find_source(evidence: list[EvidenceItem], keyword: str) -> EvidenceItem | None:
@@ -74,6 +84,12 @@ def _initial_wait_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
     days_since_start = facts["days_since_policy_start"]
     continuity_ok = facts["continuous_coverage_months"] > 0 or facts["prior_insurer_continuous_years"] >= 1
 
+    assumptions = []
+    if continuity_ok and facts["continuous_coverage_months"] > 0:
+        assumptions.append("Continuous-coverage months reported in the case are assumed to be break-free.")
+    if continuity_ok and facts["continuous_coverage_months"] == 0:
+        assumptions.append("The prior-insurer route also requires proof the insured was unaware of the illness; this is not verifiable from the case data.")
+
     if days_since_start >= days or continuity_ok:
         reason = (
             f"policy has been continuously in force ({facts['continuous_coverage_months']} months) or prior "
@@ -86,8 +102,8 @@ def _initial_wait_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
             applicable=True,
             statement=f"Initial {days}-day waiting period is satisfied: {reason}.",
             status="SUPPORTS_ADMISSIBLE",
-            citations=[cite(top, f"{days}-day initial waiting period and continuity exceptions")],
-            confidence=0.9,
+            citations=[cite(top, f"{days}-day initial waiting period and continuity exceptions", threshold((days, "days")))],
+            confidence=0.9, assumptions=assumptions if days_since_start < days else [],
         )
     else:
         finding = Finding(
@@ -98,7 +114,7 @@ def _initial_wait_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
                 f"{days}-day initial waiting period, and no continuous-coverage exception applies."
             ),
             status="SUPPORTS_EXCLUSION",
-            citations=[cite(top, f"{days}-day initial waiting period")],
+            citations=[cite(top, f"{days}-day initial waiting period", threshold((days, "days")))],
             confidence=0.9,
         )
     return finding, [], []
@@ -144,12 +160,16 @@ def _named_disease_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult
         prior.get("database_and_claim_history_received", True)
     )
     days_since_start = facts["days_since_policy_start"]
+    named_assumptions = []
+    if waived and "database_and_claim_history_received" not in prior:
+        named_assumptions.append("Prior-insurer claim history is assumed received (the case does not say).")
+    cite_assert = threshold((years, "year"), must_contain=["first year"])
 
     if days_since_start >= threshold_days:
         finding = Finding(
             dimension=dim, applicable=True,
             statement=f"Policy has been in force for {days_since_start} days, past the {years}-year named-disease waiting period.",
-            status="SUPPORTS_ADMISSIBLE", citations=[cite(top, f"{years}-year named-disease waiting period elapsed")], confidence=0.85,
+            status="SUPPORTS_ADMISSIBLE", citations=[cite(top, f"{years}-year named-disease waiting period elapsed", cite_assert)], confidence=0.85,
         )
     elif waived:
         finding = Finding(
@@ -160,8 +180,8 @@ def _named_disease_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult
                 f"under a prior Indian individual health insurer with claim history received."
             ),
             status="SUPPORTS_ADMISSIBLE",
-            citations=[cite(top, "waiting period waived for continuous prior Indian-insurer coverage")],
-            confidence=0.8,
+            citations=[cite(top, "waiting period waived for continuous prior Indian-insurer coverage", cite_assert)],
+            confidence=0.8, assumptions=named_assumptions,
         )
     else:
         finding = Finding(
@@ -171,7 +191,7 @@ def _named_disease_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult
                 f"{days_since_start} days old, and no prior-insurer continuity waiver applies."
             ),
             status="SUPPORTS_EXCLUSION",
-            citations=[cite(top, f"{years}-year named-disease waiting period")],
+            citations=[cite(top, f"{years}-year named-disease waiting period", cite_assert)],
             confidence=0.85,
         )
     return finding, [], []
@@ -205,6 +225,10 @@ def _pre_existing_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
         else 0
     )
     effective_months = facts["continuous_coverage_months"] + portability_months
+    pre_assumptions = []
+    if portability_months and "database_and_claim_history_received" not in prior:
+        pre_assumptions.append("Prior-insurer claim history is assumed received (the case does not say).")
+    pre_assert = threshold((months_needed, "months"))
 
     if effective_months >= months_needed:
         finding = Finding(
@@ -213,7 +237,7 @@ def _pre_existing_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
                 f"Effective continuous coverage ({effective_months} months, including any portability credit) "
                 f"meets the {months_needed}-month pre-existing-disease waiting period."
             ),
-            status="SUPPORTS_ADMISSIBLE", citations=[cite(top, f"{months_needed}-month pre-existing disease waiting period satisfied")], confidence=0.85,
+            status="SUPPORTS_ADMISSIBLE", citations=[cite(top, f"{months_needed}-month pre-existing disease waiting period satisfied", pre_assert)], confidence=0.85, assumptions=pre_assumptions,
         )
     else:
         finding = Finding(
@@ -222,7 +246,7 @@ def _pre_existing_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
                 f"Effective continuous coverage is {effective_months} months, short of the "
                 f"{months_needed}-month pre-existing-disease waiting period ({months_needed - effective_months} months remaining)."
             ),
-            status="SUPPORTS_EXCLUSION", citations=[cite(top, f"{months_needed}-month pre-existing disease waiting period not met")], confidence=0.85,
+            status="SUPPORTS_EXCLUSION", citations=[cite(top, f"{months_needed}-month pre-existing disease waiting period not met", pre_assert)], confidence=0.85,
         )
     return finding, [], []
 
@@ -230,6 +254,9 @@ def _pre_existing_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
 # --------------------------------------------------------------------------
 # 4. Hospital definition
 # --------------------------------------------------------------------------
+
+HOSPITAL_ASSERT = phrases("Hospital means", "in-patient beds")
+
 
 def _hospital_def_applies(facts: dict) -> bool:
     return facts["treatment_type"] != "domiciliary"
@@ -251,7 +278,8 @@ def _hospital_def_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
         finding = Finding(
             dimension=dim, applicable=True,
             statement=f"{hospital_name} is a network-empanelled provider, which is treated as satisfying the policy's Hospital definition.",
-            status="SUPPORTS_ADMISSIBLE", citations=[cite(top, "Hospital definition (registration / minimum criteria)")], confidence=0.75,
+            status="SUPPORTS_ADMISSIBLE", citations=[cite(top, "Hospital definition (registration / minimum criteria)", HOSPITAL_ASSERT)], confidence=0.75,
+            assumptions=["Network-empanelled status is treated as proof the facility meets the Hospital definition (the policy text does not state this)."],
         )
         return finding, [], []
 
@@ -265,7 +293,7 @@ def _hospital_def_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
         )
         finding = Finding(
             dimension=dim, applicable=True, statement=reason, status="INSUFFICIENT_EVIDENCE",
-            citations=[cite(top, "Hospital definition (registration / minimum criteria)")], confidence=0.3,
+            citations=[cite(top, "Hospital definition (registration / minimum criteria)", HOSPITAL_ASSERT)], confidence=0.3,
         )
         return finding, [], [MissingEvidence(field="hospital_registration_proof", reason=reason)]
 
@@ -276,14 +304,14 @@ def _hospital_def_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
         )
         finding = Finding(
             dimension=dim, applicable=True, statement=reason, status="INSUFFICIENT_EVIDENCE",
-            citations=[cite(top, "Hospital definition (registration / minimum criteria)")], confidence=0.3,
+            citations=[cite(top, "Hospital definition (registration / minimum criteria)", HOSPITAL_ASSERT)], confidence=0.3,
         )
         return finding, [], [MissingEvidence(field="hospital_registration_proof", reason=reason)]
 
     finding = Finding(
         dimension=dim, applicable=True,
         statement=f"Available evidence does not contradict {hospital_name} meeting the policy's Hospital definition.",
-        status="SUPPORTS_ADMISSIBLE", citations=[cite(top, "Hospital definition (registration / minimum criteria)")], confidence=0.5,
+        status="SUPPORTS_ADMISSIBLE", citations=[cite(top, "Hospital definition (registration / minimum criteria)", HOSPITAL_ASSERT)], confidence=0.5,
     )
     return finding, [], []
 
@@ -291,6 +319,9 @@ def _hospital_def_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
 # --------------------------------------------------------------------------
 # 5. Domiciliary treatment conditions
 # --------------------------------------------------------------------------
+
+DOMICILIARY_ASSERT = phrases("removed to a Hospital", "non-availability of room")
+
 
 def _domiciliary_applies(facts: dict) -> bool:
     return facts["treatment_type"] == "domiciliary"
@@ -313,13 +344,13 @@ def _domiciliary_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
         finding = Finding(
             dimension=dim, applicable=True,
             statement=f"Domiciliary Treatment condition is met: {reason}.",
-            status="SUPPORTS_ADMISSIBLE", citations=[cite(top, "Domiciliary Treatment definition condition met")], confidence=0.85,
+            status="SUPPORTS_ADMISSIBLE", citations=[cite(top, "Domiciliary Treatment definition condition met", DOMICILIARY_ASSERT)], confidence=0.85,
         )
     elif room_unavail is False and cannot_move is False:
         finding = Finding(
             dimension=dim, applicable=True,
             statement="Neither Domiciliary Treatment condition (room unavailability or inability to move the patient) is met.",
-            status="SUPPORTS_EXCLUSION", citations=[cite(top, "Domiciliary Treatment definition condition not met")], confidence=0.8,
+            status="SUPPORTS_EXCLUSION", citations=[cite(top, "Domiciliary Treatment definition condition not met", DOMICILIARY_ASSERT)], confidence=0.8,
         )
     else:
         return _no_evidence(dim, "Case does not state whether a hospital room was unavailable or the patient could not be moved.")
@@ -330,10 +361,13 @@ def _domiciliary_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
 # 6. Day-care / <24h treatment
 # --------------------------------------------------------------------------
 
-_NAMED_DAYCARE_KEYWORDS = [
-    "dialysis", "chemotherapy", "radiotherapy", "eye surgery", "cataract", "lithotripsy",
-    "tonsillectomy", "d&c", "dilatation and curettage",
-]
+# procedure keyword in the case -> the wording used in the policy's named list (NB4)
+_NAMED_DAYCARE = {
+    "dialysis": "Dialysis", "chemotherapy": "Chemotherapy", "radiotherapy": "Radiotherapy",
+    "eye surgery": "Eye Surgery", "cataract": "Eye Surgery", "lithotripsy": "Lithotripsy",
+    "tonsillectomy": "Tonsillectomy", "d&c": "D&C", "dilatation and curettage": "D&C",
+}
+DAYCARE_DEFINITION_ASSERT = phrases("less than 24 hrs", "General or Local Anesthesia")
 
 
 def _daycare_applies(facts: dict) -> bool:
@@ -350,15 +384,20 @@ def _daycare_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
     dim = "day_care_less_than_24h"
     if not evidence:
         return _no_evidence(dim, "Could not retrieve the Day Care Treatment definition.")
-    top = evidence[0]
     text = f"{facts.get('diagnosis','')} {facts.get('procedure','')}".lower()
-    named = any(kw in text for kw in _NAMED_DAYCARE_KEYWORDS)
+    named_terms = sorted({wording for kw, wording in _NAMED_DAYCARE.items() if kw in text})
+    definition = _find_source(evidence, "less than 24 hrs")
 
-    if named:
+    if named_terms:
+        # Cite the chunk that actually lists the procedure. If retrieval did not
+        # surface it, cite the top chunk anyway: verification will flag it
+        # UNSUPPORTED and trigger the widened-retrieval retry.
+        src = next((ev for ev in evidence if any(term.lower() in ev.text.lower() for term in named_terms)), evidence[0])
         finding = Finding(
             dimension=dim, applicable=True,
-            statement="Procedure is on the policy's named list of treatments explicitly covered when completed in under 24 hours.",
-            status="SUPPORTS_ADMISSIBLE", citations=[cite(top, "named <24h day-care procedure")], confidence=0.85,
+            statement=f"{', '.join(named_terms)} is on the policy's named list of treatments covered when completed in under 24 hours.",
+            status="SUPPORTS_ADMISSIBLE",
+            citations=[cite(src, "named <24h day-care procedure", phrases(*named_terms))], confidence=0.85,
         )
     elif facts["treatment_type"] == "day_care":
         finding = Finding(
@@ -367,7 +406,8 @@ def _daycare_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
                 "Treatment is classified as day care; admissibility assumes it required anesthesia and would "
                 "otherwise have needed >24h hospitalization, per the Day Care Treatment definition."
             ),
-            status="SUPPORTS_ADMISSIBLE", citations=[cite(top, "Day Care Treatment definition")], confidence=0.6,
+            status="SUPPORTS_ADMISSIBLE", citations=[cite(definition, "Day Care Treatment definition", DAYCARE_DEFINITION_ASSERT)], confidence=0.6,
+            assumptions=["The procedure is assumed to need anesthesia and to have otherwise required a stay over 24 hours (not stated in the case)."],
         )
     else:
         finding = Finding(
@@ -376,7 +416,7 @@ def _daycare_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
                 f"Admission was only {facts.get('admission_hours')} hours for a procedure not on the policy's named "
                 f"day-care list; medical necessity for a stay under 24 hours cannot be confirmed from the supplied evidence."
             ),
-            status="INSUFFICIENT_EVIDENCE", citations=[cite(top, "Day Care Treatment definition")], confidence=0.3,
+            status="INSUFFICIENT_EVIDENCE", citations=[cite(definition, "Day Care Treatment definition", DAYCARE_DEFINITION_ASSERT)], confidence=0.3,
         )
         return finding, [], [MissingEvidence(field="day_care_medical_justification", reason=finding.statement)]
     return finding, [], []
@@ -406,6 +446,7 @@ def _pre_post_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
 
     timing = facts.get("expense_timing")
     exp = facts.get("expenses", {})
+    window_assert = threshold((pre_limit, "days"), (post_limit, "days"))
     if not timing:
         # Missing timing metadata is common and, on its own, is not treated
         # as a reason to withhold payment or abstain on the whole case --
@@ -419,7 +460,8 @@ def _pre_post_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
         )
         finding = Finding(
             dimension=dim, applicable=True, statement=reason, status="SUPPORTS_ADMISSIBLE",
-            citations=[cite(top, f"{pre_limit}-day pre / {post_limit}-day post hospitalization window")], confidence=0.55,
+            citations=[cite(top, f"{pre_limit}-day pre / {post_limit}-day post hospitalization window", window_assert)], confidence=0.55,
+            assumptions=[f"Pre/post-hospitalization expenses are assumed to fall inside the {pre_limit}/{post_limit}-day windows (timing not supplied)."],
         )
         return finding, [], [MissingEvidence(field="expense_timing", reason=reason)]
 
@@ -435,7 +477,7 @@ def _pre_post_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
         finding = Finding(
             dimension=dim, applicable=True,
             statement=f"Pre-hospitalization ({pre_days} days) and post-hospitalization ({post_days} days) expenses are within the {pre_limit}/{post_limit}-day windows.",
-            status="SUPPORTS_ADMISSIBLE", citations=[cite(top, f"{pre_limit}-day pre / {post_limit}-day post hospitalization window")], confidence=0.85,
+            status="SUPPORTS_ADMISSIBLE", citations=[cite(top, f"{pre_limit}-day pre / {post_limit}-day post hospitalization window", window_assert)], confidence=0.85,
         )
     else:
         deduction = 0.0
@@ -451,10 +493,10 @@ def _pre_post_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
                 f"Pre/post-hospitalization expenses fall outside the {pre_limit}-day/{post_limit}-day windows or are "
                 f"not confirmed to relate to the same condition, so they are not payable."
             ),
-            status="SUPPORTS_LIMIT", citations=[cite(top, f"{pre_limit}-day pre / {post_limit}-day post hospitalization window")], confidence=0.75,
+            status="SUPPORTS_LIMIT", citations=[cite(top, f"{pre_limit}-day pre / {post_limit}-day post hospitalization window", window_assert)], confidence=0.75,
         )
         if deduction > 0:
-            limits.append(ApplicableLimit(description="Pre/post-hospitalization expenses outside policy time window", dimension=dim, deduction_inr=deduction, citations=[cite(top, "time-window limit")]))
+            limits.append(ApplicableLimit(description="Pre/post-hospitalization expenses outside policy time window", dimension=dim, deduction_inr=deduction, citations=[cite(top, "time-window limit", window_assert)]))
     return finding, limits, []
 
 
@@ -489,7 +531,7 @@ def _cosmetic_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
     finding = Finding(
         dimension=dim, applicable=True,
         statement="Diagnosis/procedure is cosmetic/aesthetic in nature with no stated injury or disease basis, which the policy excludes.",
-        status="SUPPORTS_EXCLUSION", citations=[cite(top, "cosmetic/aesthetic treatment exclusion")], confidence=0.85,
+        status="SUPPORTS_EXCLUSION", citations=[cite(top, "cosmetic/aesthetic treatment exclusion", phrases("cosmetic", "plastic surgery"))], confidence=0.85,
     )
     return finding, [], []
 
@@ -510,7 +552,7 @@ def _experimental_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
     dim = "experimental_unproven_treatment"
     if not evidence:
         return _no_evidence(dim, "Could not retrieve the Unproven/Experimental Treatment definition.")
-    top = evidence[0]
+    top = _find_source(evidence, "Unproven/Experimental Treatment") or evidence[0]
     reason = (
         "The policy defines 'Unproven/Experimental Treatment' but does not contain an explicit numbered "
         "exclusion clause naming it; the nearest analogous exclusion (treatments not approved by the Indian "
@@ -519,7 +561,9 @@ def _experimental_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
     )
     finding = Finding(
         dimension=dim, applicable=True, statement=reason, status="INSUFFICIENT_EVIDENCE",
-        citations=[cite(top, "Unproven/Experimental Treatment is defined but not tied to a specific exclusion clause")], confidence=0.3,
+        citations=[cite(top, "Unproven/Experimental Treatment is defined but no other clause of the policy mentions it",
+                        {"type": "absence", "term": "experimental", "allowed_chunk_ids": [top.chunk_id]})],
+        confidence=0.3,
     )
     return finding, [], [MissingEvidence(field="experimental_treatment_exclusion_basis", reason=reason)]
 
@@ -536,6 +580,11 @@ def _sublimits_query(facts: dict) -> str:
     return "room boarding nursing sub limit surgeon fees anesthesia medicines package sum insured domiciliary ambulance"
 
 
+def _limit_assert(keyword: str, *, percent=None, flat=None, si=None, multiplier=1, claimed=None, cap=None, deduction=None) -> dict:
+    return {"type": "limit", "keyword": keyword, "percent": percent, "flat": flat, "sum_insured": si,
+            "multiplier": multiplier, "claimed": claimed, "cap": cap, "deduction": deduction}
+
+
 def _sublimits_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
     dim = "category_sub_limits"
     if not evidence:
@@ -544,6 +593,18 @@ def _sublimits_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
     si = facts["sum_insured"]
     exp = facts.get("expenses", {})
     limits: list[ApplicableLimit] = []
+    assumptions: list[str] = []
+
+    def add_limit(description: str, keyword: str, claimed: float, cap: float, **kw) -> None:
+        # Cite the chunk whose *clause* actually states the limit, not merely
+        # the first chunk that mentions the keyword (e.g. an unrelated note).
+        src = next((ev for ev in evidence if rx.clause_with(ev.text, keyword)), None) or _find_source(evidence, keyword)
+        deduction = claimed - cap
+        limits.append(ApplicableLimit(
+            description=description, dimension=dim, deduction_inr=deduction,
+            citations=[cite(src, description.split(" (")[0],
+                            _limit_assert(keyword, si=si, claimed=claimed, cap=cap, deduction=deduction, **kw))],
+        ))
 
     if facts["treatment_type"] == "domiciliary":
         dom_pct = rx.extract_percent_of_si(combined, "Domiciliary")
@@ -551,23 +612,21 @@ def _sublimits_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
             cap = dom_pct / 100 * si
             claimed = exp.get("doctor_fees", 0) + exp.get("medicines_diagnostics", 0) + exp.get("room", 0)
             if claimed > cap:
-                src = _find_source(evidence, "Domiciliary")
-                limits.append(ApplicableLimit(
-                    description=f"Domiciliary Hospitalization aggregate sub-limit ({dom_pct}% of Basic Sum Insured = INR {cap:,.0f})",
-                    dimension=dim, deduction_inr=claimed - cap, citations=[cite(src, "Domiciliary Hospitalization aggregate sub-limit")],
-                ))
+                add_limit(f"Domiciliary Hospitalization aggregate sub-limit ({dom_pct}% of Basic Sum Insured = INR {cap:,.0f})",
+                          "Domiciliary", claimed, cap, percent=dom_pct)
         statement = "Domiciliary Hospitalization is capped at an aggregate percentage of the Basic Sum Insured."
     else:
         los_days = max(1, -(-int(facts.get("admission_hours", 24)) // 24))
         room_pct = rx.extract_percent_of_si(combined, "Room")
         if room_pct is not None and exp.get("room", 0) > 0:
+            assumptions.append(
+                f"The 'Normal Room' limit is applied per day for the length of stay ({los_days} day(s), admission hours rounded up); "
+                "the room clause does not say 'per day' explicitly (the ICU clause does).")
+            assumptions.append("All claimed room expense is treated as normal-room rent; the case does not split out ICU days.")
             cap = room_pct / 100 * si * los_days
             if exp["room"] > cap:
-                src = _find_source(evidence, "Room")
-                limits.append(ApplicableLimit(
-                    description=f"Room/boarding/nursing sub-limit ({room_pct}% of Basic Sum Insured per day x {los_days} day(s) = INR {cap:,.0f})",
-                    dimension=dim, deduction_inr=exp["room"] - cap, citations=[cite(src, "Room/boarding/nursing sub-limit")],
-                ))
+                add_limit(f"Room/boarding/nursing sub-limit ({room_pct}% of Basic Sum Insured per day x {los_days} day(s) = INR {cap:,.0f})",
+                          "Room", exp["room"], cap, percent=room_pct, multiplier=los_days)
 
         fees_pct = rx.extract_percent_of_si(combined, "fees")
         fees_deduction = 0.0
@@ -575,11 +634,8 @@ def _sublimits_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
             cap = fees_pct / 100 * si
             if exp["doctor_fees"] > cap:
                 fees_deduction = exp["doctor_fees"] - cap
-                src = _find_source(evidence, "Surgeons fees")
-                limits.append(ApplicableLimit(
-                    description=f"Medical practitioner/surgeon fees sub-limit ({fees_pct}% of Sum Insured = INR {cap:,.0f})",
-                    dimension=dim, deduction_inr=fees_deduction, citations=[cite(src, "Medical practitioner/surgeon fees sub-limit")],
-                ))
+                add_limit(f"Medical practitioner/surgeon fees sub-limit ({fees_pct}% of Sum Insured = INR {cap:,.0f})",
+                          "fees", exp["doctor_fees"], cap, percent=fees_pct)
 
         meds_pct = rx.extract_percent_of_si(combined, "Anesthesia")
         meds_deduction = 0.0
@@ -587,14 +643,12 @@ def _sublimits_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
             cap = meds_pct / 100 * si
             if exp["medicines_diagnostics"] > cap:
                 meds_deduction = exp["medicines_diagnostics"] - cap
-                src = _find_source(evidence, "Anesthesia")
-                limits.append(ApplicableLimit(
-                    description=f"Anesthesia/medicines/diagnostics sub-limit ({meds_pct}% of Sum Insured = INR {cap:,.0f})",
-                    dimension=dim, deduction_inr=meds_deduction, citations=[cite(src, "Anesthesia/medicines/diagnostics sub-limit")],
-                ))
+                add_limit(f"Anesthesia/medicines/diagnostics sub-limit ({meds_pct}% of Sum Insured = INR {cap:,.0f})",
+                          "Anesthesia", exp["medicines_diagnostics"], cap, percent=meds_pct)
 
+        # The 75% "Any One Illness" cap applies to *agreed package charges* only.
         package_pct = rx.extract_percent_of_si(combined, "package")
-        if package_pct is not None:
+        if package_pct is not None and facts.get("package_charges_agreed"):
             package_cap = package_pct / 100 * si
             subtotal_after_caps = (
                 min(exp.get("room", 0), (room_pct / 100 * si * los_days) if room_pct else exp.get("room", 0))
@@ -602,11 +656,10 @@ def _sublimits_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
                 + (exp.get("medicines_diagnostics", 0) - meds_deduction)
             )
             if subtotal_after_caps > package_cap:
-                src = _find_source(evidence, "package")
-                limits.append(ApplicableLimit(
-                    description=f"'Any One Illness' package cap ({package_pct}% of Sum Insured = INR {package_cap:,.0f})",
-                    dimension=dim, deduction_inr=subtotal_after_caps - package_cap, citations=[cite(src, "'Any One Illness' package cap")],
-                ))
+                add_limit(f"'Any One Illness' package cap ({package_pct}% of Sum Insured = INR {package_cap:,.0f})",
+                          "package", subtotal_after_caps, package_cap, percent=package_pct)
+        elif package_pct is not None:
+            assumptions.append("No agreed package charges are stated in the case, so the 75% 'Any One Illness' package cap is not applied.")
 
         amb_pct = rx.extract_percent_of_si(combined, "Ambulance")
         amb_flat = rx.extract_flat_amount(combined, "Ambulance")
@@ -618,21 +671,81 @@ def _sublimits_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
                 candidates.append(amb_flat)
             cap = min(candidates)
             if exp["ambulance"] > cap:
-                src = _find_source(evidence, "Ambulance")
-                limits.append(ApplicableLimit(
-                    description=f"Ambulance charges sub-limit (INR {cap:,.0f})",
-                    dimension=dim, deduction_inr=exp["ambulance"] - cap, citations=[cite(src, "Ambulance charges sub-limit")],
-                ))
-        statement = "Category-wise sub-limits (room/boarding, practitioner fees, medicines/anesthesia, package cap, ambulance) were checked against claimed expenses."
+                add_limit(f"Ambulance charges sub-limit (lower of {amb_pct}% of Basic Sum Insured and INR {amb_flat:,.0f} = INR {cap:,.0f})",
+                          "Ambulance", exp["ambulance"], cap, percent=amb_pct, flat=amb_flat)
+        statement = "Category-wise sub-limits (room/boarding, practitioner fees, medicines/anesthesia, ambulance) were checked against claimed expenses."
 
+    top = evidence[0]
     finding = Finding(
         dimension=dim, applicable=bool(limits),
         statement=statement + (f" {len(limits)} limit(s) reduce the payable amount." if limits else " No category sub-limit is exceeded."),
         status="SUPPORTS_LIMIT" if limits else "NOT_APPLICABLE",
-        citations=[c for l in limits for c in l.citations][:1] or [cite(evidence[0], "coverage sub-limits")],
-        confidence=0.8 if limits else 0.6,
+        citations=[c for l in limits for c in l.citations][:1] or [cite(top, "coverage sub-limits")],
+        confidence=0.8 if limits else 0.6, assumptions=assumptions if limits else [],
     )
     return finding, limits, []
+
+
+# --------------------------------------------------------------------------
+# 11. Unknown policy dimension (safety net)
+# --------------------------------------------------------------------------
+#
+# The ten dimensions above cover the rules this system models. The policy has
+# other, specific exclusions it does not model (dental, pregnancy, spectacles,
+# HIV, outpatient, listed chronic diseases, ...). Rather than silently
+# ignoring them, this dimension looks at what the case is *about* (diagnosis
+# and procedure) and flags any policy exclusion that names the same thing but
+# is not already handled by a modelled dimension. It never decides the claim
+# itself: it abstains and hands the reviewer the exact clause.
+
+_GENERIC_TERMS = {
+    "acute", "chronic", "severe", "mild", "treatment", "surgery", "surgical", "procedure", "therapy", "condition",
+    "conditions", "complication", "complications", "disorder", "disease", "diseases", "requiring", "home", "medical",
+    "management", "hospital", "hospitalization", "with", "from", "that", "this", "other", "similar", "related",
+    "exacerbation", "repair", "existing", "experimental", "unproven", "infection", "observation", "general",
+    "domiciliary", "day", "care", "inpatient", "admission",
+}
+
+
+def _terms(text: str) -> set[str]:
+    words = {w.rstrip("s") for w in re.findall(r"[a-z]{4,}", text.lower())}
+    generic = {g.rstrip("s") for g in _GENERIC_TERMS}
+    return {w for w in words if w not in generic}
+
+
+def _unmodelled_applies(facts: dict) -> bool:
+    return True
+
+
+def _unmodelled_query(facts: dict) -> str:
+    return f"{facts.get('diagnosis', '')} {facts.get('procedure', '')} exclusion not covered".strip()
+
+
+def _unmodelled_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
+    dim = "unmodelled_policy_risk"
+    terms = _terms(f"{facts.get('diagnosis', '')} {facts.get('procedure', '')}")
+    handled = set(facts.get("_cited_chunk_ids", []))
+    for ev in evidence:
+        if ev.section != "What We Exclude" or ev.chunk_id in handled:
+            continue
+        body = {w.rstrip("s") for w in re.findall(r"[a-z]{4,}", ev.text.lower())}
+        overlap = sorted(terms & body)
+        if overlap:
+            statement = (
+                f"The diagnosis/procedure mentions '{overlap[0]}', which the policy names in a specific exclusion "
+                f"({ev.label}, page {ev.page_start}). No modelled rule evaluates it, so the system will not decide "
+                f"this on its own; a reviewer should confirm whether the exclusion applies."
+            )
+            finding = Finding(
+                dimension=dim, applicable=True, statement=statement, status="INSUFFICIENT_EVIDENCE", confidence=0.3,
+                citations=[cite(ev, "Possible exclusion not covered by any modelled check", phrases(overlap[0]))],
+            )
+            return finding, [], [MissingEvidence(field="unmodelled_policy_risk", reason=statement)]
+    finding = Finding(
+        dimension=dim, applicable=False, status="NOT_APPLICABLE", confidence=0.6,
+        statement="No unmodelled policy exclusion matches the diagnosis or procedure.", citations=[],
+    )
+    return finding, [], []
 
 
 @dataclass
@@ -654,4 +767,5 @@ DIMENSIONS: list[Dimension] = [
     Dimension("cosmetic_exclusion", _cosmetic_applies, _cosmetic_query, _cosmetic_eval),
     Dimension("experimental_unproven_treatment", _experimental_applies, _experimental_query, _experimental_eval),
     Dimension("category_sub_limits", _sublimits_applies, _sublimits_query, _sublimits_eval),
+    Dimension("unmodelled_policy_risk", _unmodelled_applies, _unmodelled_query, _unmodelled_eval),
 ]

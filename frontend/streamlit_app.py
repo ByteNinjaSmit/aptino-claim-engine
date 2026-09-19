@@ -1,9 +1,11 @@
 """Reviewer console for the Aptino claim decision engine.
 
 Layout (top to bottom): sidebar (API + legend) -> three tabs:
-  1. Analyze a claim   - pick / build / paste / upload a case, run it, read the verdict
-  2. How it works      - the pipeline, retrieval, decision statuses, safety rules
-  3. Evaluation        - stored metrics + a live batch run against the API
+  1. Analyze a claim   - pick / build / paste / upload a case, run it, read the verdict,
+                         then audit it in the reviewer panel (claim -> citation -> chunk -> verdict,
+                         assumptions, unmodelled risks, agent workflow) and record a review
+  2. How it works      - the pipeline, retrieval, verification, decision statuses
+  3. Evaluation        - stored metrics + ablation + a live batch run against the API
 """
 from __future__ import annotations
 
@@ -11,7 +13,7 @@ import html
 import json
 import math
 import os
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -48,6 +50,7 @@ DIMENSIONS = {
     "cosmetic_exclusion": ("Cosmetic treatment exclusion", "Is the treatment cosmetic or aesthetic?"),
     "experimental_unproven_treatment": ("Experimental / unproven treatment", "Is the treatment experimental, and does the policy exclude it?"),
     "category_sub_limits": ("Expense-category caps", "Do any caps reduce what is payable?"),
+    "unmodelled_policy_risk": ("Policy rules not modelled", "Does the policy name this diagnosis in a specific rule the system does not evaluate?"),
 }
 
 STATUSES = {
@@ -57,6 +60,8 @@ STATUSES = {
     "INSUFFICIENT_EVIDENCE": ("Cannot confirm", GREY),
     "NOT_APPLICABLE": ("No cap reached", GREEN),
 }
+
+VERDICTS = {"SUPPORTED": ("Supported", GREEN), "UNSUPPORTED": ("Unsupported", RED), "CONTRADICTED": ("Contradicted", RED)}
 
 AGENTS = [
     ("CaseAnalysisAgent", "Case Analysis", "Reads the claim and decides which policy questions apply."),
@@ -357,7 +362,19 @@ def render_checks(result: dict) -> None:
         st.markdown(
             f'<div class="check" style="--c:{s_color}"><div style="float:right">{pill(s_label, s_color)}</div>'
             f'<div class="t">{esc(title)}</div><div class="q">{esc(question)}</div>'
-            f'<div class="s">{esc(f["statement"])}</div><div style="margin-top:4px">{refs}</div></div>', unsafe_allow_html=True)
+            f'<div class="s">{esc(f["statement"])}</div>'
+            + "".join(f'<div class="sub" style="margin-top:2px">Assumes: {esc(a)}</div>' for a in f.get("assumptions", []))
+            + f'<div style="margin-top:4px">{refs}</div></div>', unsafe_allow_html=True)
+
+
+def worst_verdict_by_chunk(result: dict) -> dict[str, str]:
+    rank = {"SUPPORTED": 0, "UNSUPPORTED": 1, "CONTRADICTED": 2}
+    out: dict[str, str] = {}
+    for v in result.get("validation", {}).get("verifications", []):
+        cid = v.get("chunk_id")
+        if cid and rank[v["verdict"]] >= rank.get(out.get(cid, "SUPPORTED"), 0):
+            out[cid] = v["verdict"]
+    return out
 
 
 def render_evidence(result: dict) -> None:
@@ -369,16 +386,21 @@ def render_evidence(result: dict) -> None:
     for f in result.get("findings", []):
         for cid in f.get("chunk_ids", []):
             used_for.setdefault(cid, []).append(DIMENSIONS.get(f["dimension"], (f["dimension"],))[0])
-    st.caption("Exact policy text the system relied on. Every citation is traceable to a page and chunk of the supplied PDF.")
+    verdicts = worst_verdict_by_chunk(result)
+    st.caption("Exact policy text the system relied on. Every citation is traceable to a page and chunk of the supplied PDF, "
+               "and carries the verdict of the evidence check (does this chunk really say what the claim says?).")
     for c in citations:
         rel = relevance(c.get("rerank_score"))
         uses = ", ".join(sorted(set(used_for.get(c["chunk_id"], [])))) or "-"
         excerpt = c.get("excerpt")
+        v = verdicts.get(c["chunk_id"])
+        vpill = pill(*VERDICTS[v]) if v else ""
         st.markdown(
-            f'<div class="card"><div><b>{esc(c["section"])}</b> <span class="sub">| page {esc(c["page"])} | {esc(c["chunk_id"])}</span></div>'
+            f'<div class="card"><div style="float:right">{vpill}</div>'
+            f'<div><b>{esc(c["section"])}</b> <span class="sub">| page {esc(c["page"])} | {esc(c["chunk_id"])}</span></div>'
             f'<div class="sub">Supports: {esc(c["claim"])} | used for: {esc(uses)}</div>'
             + (f'<div class="quote">{esc(excerpt)}</div>' if excerpt else "")
-            + f'<div class="sub" style="max-width:300px">Relevance to the question {relevance(c.get("rerank_score")):.0%}'
+            + f'<div class="sub" style="max-width:300px">Relevance to the question {rel:.0%}'
               f'</div><div class="bar" style="--c:{BLUE};max-width:300px"><div style="width:{rel * 100:.0f}%"></div></div></div>',
             unsafe_allow_html=True)
 
@@ -392,27 +414,151 @@ def render_missing(result: dict, prominent: bool) -> None:
     if prominent:
         st.warning("The system is abstaining. To reach a decision it would need the items below.")
     for m in missing:
-        st.markdown(f'<div class="check" style="--c:{GREY}"><div class="t">{esc(m["field"])}</div>'
+        title = DIMENSIONS.get(m["field"], (m["field"],))[0]
+        st.markdown(f'<div class="check" style="--c:{GREY}"><div class="t">{esc(title)}</div>'
                     f'<div class="s">{esc(m["reason"])}</div></div>', unsafe_allow_html=True)
 
 
-def render_trace(result: dict) -> None:
-    trace = {t["agent"]: t for t in result.get("trace", [])}
-    total = sum(t.get("elapsed_ms", 0) for t in trace.values()) or 1
-    st.caption(f"Five specialised agents ran in sequence, total {total:,.0f} ms. Only actions, counts and timings are shown, never hidden reasoning.")
-    for i, (key, name, does) in enumerate(AGENTS, start=1):
-        t = trace.get(key)
-        if not t:
-            continue
-        share = t.get("elapsed_ms", 0) / total
-        extra = f' | {t["retrieval_count"]} evidence chunks' if t.get("retrieval_count") else ""
-        st.markdown(
-            f'<div class="step" style="--c:{BLUE}"><div class="n">{i}</div><div style="flex:1">'
-            f'<div><b>{esc(name)}</b> <span class="sub">{esc(does)}</span></div>'
-            f'<div class="sub">{esc(t["detail"])}</div>'
-            f'<div class="sub">{t["elapsed_ms"]:,.1f} ms{esc(extra)}</div>'
-            f'<div class="bar" style="--c:{BLUE};max-width:360px"><div style="width:{max(share * 100, 1):.0f}%"></div></div></div></div>',
-            unsafe_allow_html=True)
+def render_workflow(result: dict) -> None:
+    """The agent state machine: what each agent read, wrote, and how the shared state changed."""
+    trace, handoffs = result.get("trace", []), result.get("handoffs", [])
+    total = sum(t.get("elapsed_ms", 0) for t in trace) or 1
+    attempts = sorted({t.get("attempt", 1) for t in trace})
+    st.caption(f"Five specialised agents pass one typed state object down the line; total {total:,.0f} ms. "
+               "Only actions, counts and timings are shown, never hidden reasoning.")
+    retries = [h for h in handoffs if h["kind"] == "retry"]
+    for h in retries:
+        st.warning(f"Retry loop: {h['payload']}")
+
+    used: set[int] = set()
+    for attempt in attempts:
+        label = "Attempt 1" if attempt == 1 else f"Attempt {attempt} (retry with widened retrieval)"
+        st.markdown(f"**{label}**")
+        prev: dict = {}
+        for t in [x for x in trace if x.get("attempt", 1) == attempt]:
+            name, does = next(((n, d) for k, n, d in AGENTS if k == t["agent"]), (t["agent"], ""))
+            idx = next((i for i, n in enumerate(AGENTS, 1) if n[0] == t["agent"]), 0)
+            snap = t.get("snapshot", {})
+            changes = [f"{k} {prev.get(k, 0)} -> {v}" for k, v in snap.items() if v != prev.get(k, 0 if isinstance(v, int) else None)
+                       and k not in ("decision", "validation")]
+            for k in ("decision", "validation"):
+                if snap.get(k) and snap.get(k) != prev.get(k):
+                    changes.append(f"{k} = {snap[k]}")
+            prev = snap
+            reads = "".join(f'<span class="chip">{esc(r)}</span>' for r in t.get("reads", []))
+            writes = "".join(f'<span class="chip" style="background:rgba(9,105,218,.16)">{esc(w)}</span>' for w in t.get("writes", []))
+            extra = f' | {t["retrieval_count"]} evidence chunks' if t.get("retrieval_count") else ""
+            share = t.get("elapsed_ms", 0) / total
+            st.markdown(
+                f'<div class="step" style="--c:{BLUE}"><div class="n">{idx}</div><div style="flex:1">'
+                f'<div><b>{esc(name)}</b> <span class="sub">{esc(does)}</span></div>'
+                f'<div class="sub">{esc(t["detail"])}</div>'
+                f'<div class="sub" style="margin-top:4px">reads {reads} writes {writes}</div>'
+                f'<div class="sub">state change: {esc("; ".join(changes) or "none")}</div>'
+                f'<div class="sub">{t["elapsed_ms"]:,.1f} ms{esc(extra)}</div>'
+                f'<div class="bar" style="--c:{BLUE};max-width:360px"><div style="width:{max(share * 100, 1):.0f}%"></div></div></div></div>',
+                unsafe_allow_html=True)
+            for i, h in enumerate(handoffs):
+                if i not in used and h["from_agent"] == t["agent"]:
+                    used.add(i)
+                    color = AMBER if h["kind"] == "retry" else GREY
+                    st.markdown(f'<div class="sub" style="margin:2px 0 6px 42px;color:{color}">&darr; hands off to <b>{esc(h["to_agent"])}</b>: {esc(h["payload"])}</div>',
+                                unsafe_allow_html=True)
+                    break
+
+
+def _attention_items(result: dict) -> list[tuple[str, str, str]]:
+    """(severity colour, title, detail) for everything a reviewer should look at first."""
+    items: list[tuple[str, str, str]] = []
+    ver = result.get("validation", {}).get("verifications", [])
+    for v in ver:
+        if v["verdict"] != "SUPPORTED":
+            items.append((RED, f'{v["verdict"].title()} claim: {v["claim"]}', v["reason"]))
+    for r in result.get("unmodelled_policy_risks", []):
+        items.append((AMBER, "Policy rule the system does not model", r["statement"]))
+    for m in result.get("missing_evidence", []):
+        if m["field"] != "unmodelled_policy_risk":  # already shown as its own item above
+            items.append((GREY, f'Missing evidence: {m["field"]}', m["reason"]))
+    n_assume = len(result.get("assumptions", []))
+    if n_assume:
+        items.append((BLUE, f"{n_assume} assumption(s) behind this answer", "The system filled gaps with the assumptions listed below; confirm they hold for this claim."))
+    attempts = max((t.get("attempt", 1) for t in result.get("trace", [])), default=1)
+    if attempts > 1:
+        items.append((BLUE, "Evidence was re-retrieved", "A first-pass citation failed verification; retrieval was widened and the answer recomputed."))
+    return items
+
+
+def render_reviewer_panel(result: dict, case: dict) -> None:
+    ver = result.get("validation", {}).get("verifications", [])
+    counts = result.get("validation", {}).get("counts", {})
+
+    st.markdown("##### What needs your attention")
+    items = _attention_items(result)
+    hard = [i for i in items if i[0] in (RED, AMBER)]
+    if not hard:
+        st.markdown(f'<div class="check" style="--c:{GREEN}"><div class="t">All {len(ver)} claims verified against retrieved policy text</div>'
+                    f'<div class="s">No unsupported or contradicted claim, and no unmodelled policy rule flagged.</div></div>', unsafe_allow_html=True)
+    for color, title, detail in items:
+        st.markdown(f'<div class="check" style="--c:{color}"><div class="t">{esc(title)}</div><div class="s">{esc(detail)}</div></div>', unsafe_allow_html=True)
+
+    st.markdown("##### Claim audit: decision claim, citation, policy chunk, verdict")
+    st.caption(f"{counts.get('SUPPORTED', 0)} supported, {counts.get('UNSUPPORTED', 0)} unsupported, {counts.get('CONTRADICTED', 0)} contradicted. "
+               "Each row is one statement the system makes; the checks show exactly what was compared with the cited text.")
+    order = {"CONTRADICTED": 0, "UNSUPPORTED": 1, "SUPPORTED": 2}
+    for v in sorted(ver, key=lambda x: order[x["verdict"]]):
+        label, color = VERDICTS[v["verdict"]]
+        kind = {"policy_claim": "Policy claim", "limit_claim": "Limit / deduction", "decision_claim": "Decision"}[v["kind"]]
+        title = DIMENSIONS.get(v["dimension"], (v["dimension"],))[0] if v["dimension"] != "decision" else "Final decision"
+        src = f'{esc(v.get("section"))}, page {esc(v.get("page"))}, chunk {esc(v.get("chunk_id"))}' if v.get("chunk_id") else "derived from the findings above"
+        with st.expander(f'{v["claim_id"]} | {label} | {kind}: {title}'):
+            st.markdown(f'<div class="check" style="--c:{color}"><div style="float:right">{pill(label, color)}</div>'
+                        f'<div class="t">{esc(v["claim"])}</div><div class="q">Source: {src}</div>'
+                        f'<div class="s">{esc(v["reason"])}</div></div>', unsafe_allow_html=True)
+            for c in v.get("checks", []):
+                mark, mcolor = ("passed", GREEN) if c["passed"] else ("failed", RED)
+                st.markdown(f'{pill(mark, mcolor)} {esc(c["name"])} <span class="sub">{esc(c.get("detail", ""))}</span>', unsafe_allow_html=True)
+            if v.get("excerpt"):
+                st.markdown(f'<div class="quote">{esc(v["excerpt"])}</div>', unsafe_allow_html=True)
+
+    st.markdown("##### Assumptions the system made")
+    assumptions = result.get("assumptions", [])
+    if assumptions:
+        st.table(pd.DataFrame([{"Check": DIMENSIONS.get(a["dimension"], (a["dimension"],))[0], "Assumption": a["assumption"]} for a in assumptions]))
+    else:
+        st.caption("None: every conclusion rests on stated facts and cited text.")
+
+    st.markdown("##### Your decision")
+    system_decision = result["decision"]
+    with st.form(f"review_{result['case_id']}"):
+        stance = st.radio("Your assessment", ["Agree with the system", "Override the decision", "Escalate: more information needed"], horizontal=True)
+        override = st.selectbox("Decision you would give (used if you override)", list(DECISIONS), index=list(DECISIONS).index(system_decision))
+        c1, c2 = st.columns([1, 2])
+        reviewer = c1.text_input("Reviewer name (optional)")
+        notes = c2.text_area("Notes / rationale", height=80)
+        submitted = st.form_submit_button("Record review", type="primary")
+    if submitted:
+        record = {
+            "case_id": result["case_id"], "system_decision": system_decision, "system_confidence": result["confidence"],
+            "reviewer_assessment": stance,
+            "reviewer_decision": system_decision if stance.startswith("Agree") else (override if stance.startswith("Override") else None),
+            "reviewer": reviewer or None, "notes": notes,
+            "recorded_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "verification_counts": counts, "open_items": [{"title": t, "detail": d} for c, t, d in items if c in (RED, AMBER, GREY)],
+            "assumptions": [a["assumption"] for a in assumptions],
+            "estimated_payable_inr": (result.get("amounts") or {}).get("estimated_payable_inr"),
+        }
+        st.session_state.setdefault("reviews", []).append(record)
+    reviews = [r for r in st.session_state.get("reviews", []) if r["case_id"] == result["case_id"]]
+    if reviews:
+        last = reviews[-1]
+        st.success(f"Recorded: {last['reviewer_assessment']} at {last['recorded_at']}. "
+                   "Reviews live in this browser session and are exported as JSON; the API itself is stateless.")
+        st.download_button("Download review record (JSON)", json.dumps(last, indent=2), file_name=f"{last['case_id']}_review.json", mime="application/json")
+    all_reviews = st.session_state.get("reviews", [])
+    if len(all_reviews) > 1 or (all_reviews and not reviews):
+        st.caption("Reviews recorded this session")
+        st.dataframe(pd.DataFrame([{k: r[k] for k in ("case_id", "system_decision", "reviewer_assessment", "reviewer_decision", "reviewer", "recorded_at")}
+                                   for r in all_reviews]), hide_index=True)
 
 
 with tab_analyze:
@@ -469,8 +615,15 @@ with tab_analyze:
         render_money(result)
         if result["decision"] == "NEEDS_REVIEW":
             render_missing(result, prominent=True)
+        if result.get("validation", {}).get("status") == "FAIL":
+            st.error("Evidence verification failed for at least one claim; see the Reviewer panel.")
 
-        t_why, t_evi, t_miss, t_trace, t_raw = st.tabs(["Why: the checks", "Policy evidence", "Missing evidence", "Agent trace", "Raw response"])
+        n_attention = sum(1 for c, _, _ in _attention_items(result) if c in (RED, AMBER))
+        t_rev, t_why, t_evi, t_miss, t_flow, t_raw = st.tabs(
+            [f"Reviewer panel ({n_attention} to check)" if n_attention else "Reviewer panel", "Why: the checks", "Policy evidence",
+             "Missing evidence", "Agent workflow", "Raw response"])
+        with t_rev:
+            render_reviewer_panel(result, case)
         with t_why:
             render_checks(result)
             with st.expander("Written rationale"):
@@ -478,11 +631,12 @@ with tab_analyze:
         with t_evi:
             render_evidence(result)
         with t_miss:
-            render_missing(result, prominent=False) if result.get("missing_evidence") else st.info("Nothing flagged as missing.")
-            if result.get("validation", {}).get("unsupported_claims"):
-                st.error("Validation issues: " + "; ".join(result["validation"]["unsupported_claims"]))
-        with t_trace:
-            render_trace(result)
+            if result.get("missing_evidence"):
+                render_missing(result, prominent=False)
+            else:
+                st.info("Nothing flagged as missing.")
+        with t_flow:
+            render_workflow(result)
         with t_raw:
             st.download_button("Download result JSON", json.dumps(result, indent=2), file_name=f"{result['case_id']}_decision.json", mime="application/json")
             st.json(result)
@@ -503,7 +657,8 @@ with tab_how:
     flow = '<div class="flow">' + '<div class="arrow">&rarr;</div>'.join(
         f'<div class="box"><b>{i}. {esc(name)}</b>{esc(does)}</div>' for i, (_, name, does) in enumerate(AGENTS, start=1)) + "</div>"
     st.markdown(flow, unsafe_allow_html=True)
-    st.caption("Agents hand each other one typed state object, not free text, so each step can be inspected on its own.")
+    st.caption("Agents hand each other one typed state object, not free text. The Agent workflow tab shows what each agent read, wrote, and how the state changed. "
+               "If Validation finds a claim it cannot verify, control loops back to Policy Evidence once with wider retrieval before the system gives up and abstains.")
 
     c1, c2 = st.columns(2)
     with c1:
@@ -520,11 +675,24 @@ with tab_how:
         st.markdown(
             "- **Numbers come from the retrieved text**, not from memory: waiting periods, percentages and day limits are read out of the cited clause.\n"
             "- **The AI never decides.** The verdict comes from deterministic rules over cited findings; a language model may only re-word the explanation.\n"
-            "- **Validation:** every citation must match text that was actually retrieved, otherwise the case is downgraded to *Needs review*.\n"
-            "- **Abstention:** unresolved facts or missing policy support always produce *Needs review*, never a guess.")
+            "- **Every claim is verified** against the chunk it cites (see below). Anything unverified triggers a re-retrieval, then abstention.\n"
+            "- **Abstention:** unresolved facts, missing policy support, or a policy rule the system does not model always produce *Needs review*, never a guess.")
 
-    st.subheader("The ten questions the system can ask about a claim")
+    st.subheader("How a claim is verified")
+    st.markdown('<div class="flow"><div class="box"><b>Decision claim</b>e.g. "excluded: 30-day wait"</div><div class="arrow">&rarr;</div>'
+                '<div class="box"><b>Citation</b>page, section, chunk id</div><div class="arrow">&rarr;</div>'
+                '<div class="box"><b>Retrieved policy chunk</b>the exact text</div><div class="arrow">&rarr;</div>'
+                '<div class="box"><b>Evidence check</b>numbers, phrases, arithmetic</div><div class="arrow">&rarr;</div>'
+                '<div class="box"><b>Verdict</b>supported / unsupported / contradicted</div></div>', unsafe_allow_html=True)
+    st.markdown(
+        "- **Supported:** the cited chunk contains what the claim asserts (for a limit: the same percentage, and the cap and deduction add up).\n"
+        "- **Unsupported:** the chunk does not contain it, or it was never retrieved.\n"
+        "- **Contradicted:** the chunk states a *different* figure, the arithmetic is wrong, or the final decision conflicts with its own findings.")
+
+    st.subheader("The eleven checks")
     st.table(pd.DataFrame([{"Check": t, "Question": q} for t, q in DIMENSIONS.values()]))
+    st.caption("The last check is a safety net: the policy has specific rules (dental, pregnancy, listed illnesses, ...) that the ten modelled checks do not evaluate. "
+               "When a diagnosis names one of them, the system abstains and shows the clause instead of ignoring it.")
 
     st.subheader("Verdicts")
     st.table(pd.DataFrame([{"Verdict": label, "Meaning": plain} for _, label, plain in DECISIONS.values()]))
@@ -538,18 +706,43 @@ with tab_eval:
     st.subheader("Stored evaluation results")
     if not metrics:
         st.info("No eval_results/metrics.json found. Run `python -m aptino_claims.eval.run_eval`.")
+    elif "decision" not in metrics:
+        st.warning("eval_results/metrics.json is from an older evaluation format; re-run the evaluation.")
     else:
-        n = metrics["n_cases"]
+        dec, amt, ret, cit, ctl = metrics["decision"], metrics["amounts"], metrics["retrieval"], metrics["citations"], metrics["controls"]
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Cases evaluated", n)
-        c2.metric("Decision accuracy", f"{metrics['decision_accuracy']:.0%}")
-        c3.metric("Citation validation", f"{metrics['citation_validation_pass_rate']:.0%}")
-        c4.metric("Retrieval evidence hit rate", f"{metrics['retrieval_evidence_hit_rate']:.0%}" if metrics.get("retrieval_evidence_hit_rate") is not None else "n/a")
-        ab = metrics.get("required_abstentions", {})
-        st.caption(f"Required abstentions: {sum(ab.values())}/{len(ab)} correct ({', '.join(ab)}). "
-                   "Expected outcomes are hand-derived from the policy text; see eval_results/failure_analysis.md for failures found and fixed.")
-        df = pd.DataFrame(metrics["per_case"])[["case_id", "expected_decision", "actual_decision", "decision_correct", "confidence", "validation_status"]]
-        df.columns = ["Case", "Expected", "Actual", "Correct", "Confidence", "Validation"]
+        c1.metric("Decision accuracy", f"{dec['correct']}/{dec['n']}", help="Exact match against hand-derived expected outcomes.")
+        c2.metric("Unsafe decisions", len(dec["unsafe_decisions"]), help="Confident (non-abstaining) decisions that are wrong.")
+        c3.metric("Payable amounts exact", f"{amt['exact_match_rate']:.0%}" if amt["exact_match_rate"] is not None else "n/a", help=f"{amt['n']} cases with hand-derived deductions.")
+        c4.metric("Reproducible", "yes" if metrics["reproducibility"]["identical"] else "NO", help="Two cold runs produced byte-identical responses.")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Retrieval recall@5", f"{ret['systems']['reranked']['recall@5']:.2f}")
+        c2.metric("Gold-citation precision", f"{cit['gold_citation_precision']:.0%}")
+        c3.metric("Claims verified", f"{cit['verifier_counts']['SUPPORTED']}/{cit['verifier_claims']}")
+        c4.metric("Fault injection caught", f"{ctl['detected']}/{ctl['injected']}", help="Known-bad citations, numbers, arithmetic and decisions injected to test the verifier.")
+        st.caption(f"{metrics['n_cases']} cases ({metrics['n_public']} supplied + {metrics['n_custom']} candidate-authored). "
+                   f"Latency p50 {metrics['latency_ms']['p50']:.0f} ms, p95 {metrics['latency_ms']['p95']:.0f} ms on a cold cache. "
+                   "Labels are the author's reading of the policy; see eval_results/report.md for what this evaluation does not prove.")
+
+        st.markdown("##### Retrieval ablation: what does each stage add?")
+        names = {"dense": "Dense only", "sparse": "BM25 only", "fused": "Dense + BM25 (RRF)", "reranked": "RRF + rerank (system)"}
+        abl = pd.DataFrame([{"Retriever": names[s], **{m: v for m, v in ret["systems"][s].items()}} for s in names]).set_index("Retriever")
+        st.dataframe(abl)
+        st.bar_chart(abl[["recall@1", "recall@3", "mrr"]], stack=False)
+
+        with st.expander("Confusion matrix and per-class scores"):
+            classes = list(dec["confusion_matrix"])
+            st.caption("Rows = expected, columns = predicted.")
+            st.dataframe(pd.DataFrame(dec["confusion_matrix"]).T[classes])
+            st.dataframe(pd.DataFrame(dec["per_class"]).T)
+        with st.expander("Fault-injection results (how well does the verifier catch bad claims?)"):
+            st.dataframe(pd.DataFrame([{"Fault": k.replace("_", " "), "Injected": v["injected"], "Detected": v["detected"], "Rate": v["detection_rate"]}
+                                       for k, v in ctl["by_type"].items()]), hide_index=True)
+
+        st.markdown("##### Per-case results")
+        df = pd.DataFrame(metrics["per_case"])[["case_id", "expected_decision", "actual_decision", "decision_correct", "confidence",
+                                                "expected_deduction_inr", "actual_deduction_inr", "claims_supported", "claims_total", "attempts"]]
+        df.columns = ["Case", "Expected", "Actual", "Correct", "Confidence", "Expected deduction", "Actual deduction", "Verified", "Claims", "Attempts"]
         st.dataframe(df, hide_index=True)
 
     st.subheader("Run all cases live against the API")
@@ -562,10 +755,11 @@ with tab_eval:
                 res = call_api(api_url, c)
                 exp = expected_for(c["case_id"])
                 rows.append({"Case": c["case_id"], "Expected": exp, "Actual": res["decision"], "Match": exp == res["decision"],
-                             "Confidence": res["confidence"], "Payable (INR)": (res.get("amounts") or {}).get("estimated_payable_inr")})
+                             "Confidence": res["confidence"], "Payable (INR)": (res.get("amounts") or {}).get("estimated_payable_inr"),
+                             "Claims verified": f"{res['validation'].get('counts', {}).get('SUPPORTED', '?')}/{sum(res['validation'].get('counts', {}).values()) or '?'}"})
             except Exception as e:
                 rows.append({"Case": c["case_id"], "Expected": expected_for(c["case_id"]), "Actual": f"error: {e}", "Match": False,
-                             "Confidence": None, "Payable (INR)": None})
+                             "Confidence": None, "Payable (INR)": None, "Claims verified": None})
             bar.progress(i / len(cases))
         live = pd.DataFrame(rows)
         st.metric("Live decision accuracy", f"{live['Match'].mean():.0%}" if len(live) else "n/a")

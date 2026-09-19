@@ -61,6 +61,7 @@ def build_facts(raw_case: dict) -> tuple[dict, list[MissingEvidence]]:
         "procedure": treatment.get("procedure", ""),
         "pre_existing": treatment.get("pre_existing", False),
         "experimental": treatment.get("experimental", False),
+        "package_charges_agreed": bool(treatment.get("package_charges_agreed", False)),
         "hospital_room_unavailable": treatment.get("hospital_room_unavailable"),
         "patient_cannot_be_moved": treatment.get("patient_cannot_be_moved"),
         "hospital_network_provider": hospital.get("network_provider", False),
@@ -107,5 +108,7 @@ def run(state: CaseState) -> CaseState:
     detail = f"{len(applicable)} decision dimension(s) apply: {', '.join(state.dimensions)}"
     if facts.get("_unrecognized_fields"):
         detail += f" | ignored non-policy-relevant fields: {facts['_unrecognized_fields']}"
-    state.log("CaseAnalysisAgent", "extract_facts_and_plan", detail, started_at=started)
+    state.log("CaseAnalysisAgent", "extract_facts_and_plan", detail, started_at=started,
+              reads=["raw_case"], writes=["facts", "dimensions", "investigation_checklist", "missing_fields"])
+    state.hand_off("CaseAnalysisAgent", "PolicyEvidenceAgent", f"{len(state.dimensions)} policy questions to research")
     return state

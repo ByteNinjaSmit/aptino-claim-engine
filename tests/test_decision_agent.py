@@ -38,3 +38,14 @@ def test_clean_admissible_case_with_no_limits():
     state = _state_with_findings(findings)
     decision_agent.run(state, OfflineLLMClient())
     assert state.decision == DecisionStatus.ADMISSIBLE
+
+
+def test_confirmed_exclusion_outranks_unresolved_side_questions():
+    findings = [
+        Finding(dimension="cosmetic_exclusion", applicable=True, statement="excluded", status="SUPPORTS_EXCLUSION", confidence=0.85),
+        Finding(dimension="hospital_definition", applicable=True, statement="?", status="INSUFFICIENT_EVIDENCE", confidence=0.3),
+    ]
+    state = _state_with_findings(findings, explicit_unknowns=["hospital_registered"])
+    decision_agent.run(state, OfflineLLMClient())
+    assert state.decision == DecisionStatus.NOT_ADMISSIBLE
+    assert state.confidence < 0.85  # lower confidence: open questions remain

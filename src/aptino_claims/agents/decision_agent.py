@@ -37,16 +37,21 @@ def run(state: CaseState, llm: LLMClient) -> CaseState:
     sub_limits = [l for l in state.applicable_limits if l.dimension == "category_sub_limits" and (l.deduction_inr or 0) > 0]
     time_window_deductions = [l for l in state.applicable_limits if l.dimension == "pre_post_hospitalization_window" and (l.deduction_inr or 0) > 0]
 
-    force_review = bool(state.facts.get("_explicit_unknowns")) or any(
-        m.field == "policy_start_date/claim_date" for m in state.missing_fields
-    )
+    missing_dates = any(m.field == "policy_start_date/claim_date" for m in state.missing_fields)
+    unresolved = bool(state.facts.get("_explicit_unknowns")) or bool(insufficient)
 
-    if force_review or insufficient:
+    # Precedence: without dates nothing can be decided; otherwise one verified
+    # ground for rejection is enough (unresolved side-questions cannot rescue
+    # an excluded claim); only then does unresolved evidence force a review.
+    if missing_dates:
         state.decision = DecisionStatus.NEEDS_REVIEW
-        state.confidence = max(0.25, 0.4 - 0.03 * len(insufficient))
+        state.confidence = 0.25
     elif whole_claim_exclusions:
         state.decision = DecisionStatus.NOT_ADMISSIBLE
-        state.confidence = 0.85
+        state.confidence = 0.85 if not unresolved else 0.75
+    elif unresolved:
+        state.decision = DecisionStatus.NEEDS_REVIEW
+        state.confidence = max(0.25, 0.4 - 0.03 * len(insufficient))
     elif time_window_limits and time_window_deductions:
         state.decision = DecisionStatus.PARTIALLY_ADMISSIBLE
         state.confidence = 0.75
@@ -80,5 +85,8 @@ def run(state: CaseState, llm: LLMClient) -> CaseState:
         f"(insufficient={len(insufficient)}, exclusions={len(whole_claim_exclusions)}, "
         f"time_window_limits={len(time_window_deductions)}, sub_limits={len(sub_limits)})",
         started_at=started,
+        reads=["findings", "applicable_limits", "missing_fields"],
+        writes=["decision", "confidence", "rationale"],
     )
+    state.hand_off("DecisionAgent", "ValidationAgent", f"decision {state.decision.value} to verify against its citations")
     return state

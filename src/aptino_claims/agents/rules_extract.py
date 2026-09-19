@@ -31,27 +31,45 @@ def extract_pre_existing_months(text: str) -> int | None:
     return find_int(r"(\d+)\s*months of continuous coverage", text)
 
 
-def extract_percent_of_si(text: str, near: str) -> float | None:
-    """Find a `<pct>% of ... Sum Insured/Assured` figure appearing near a keyword."""
-    for m in re.finditer(r"([\d.]+)\s*%\s*of\s*(?:the\s*)?(?:Basic\s*)?Sum\s*(?:Insured|Assured)", text, re.I):
-        window = text[max(0, m.start() - 120) : m.start()]
-        if near.lower() in window.lower() or near.lower() in text[m.start() : m.end() + 20].lower():
-            return float(m.group(1))
+_CLAUSE_SPLIT = re.compile(r"(?=\b\d{1,2}\.\s)|(?=NB\d+:)|(?=\b[a-c]\)\s)")
+_PERCENT_RE = re.compile(r"([\d.]+)\s*%\s*(?:of\s*)?(?:the\s*)?(?:Basic\s*)?Sum\s*(?:Insured|Assured)", re.I)
+_FLAT_RE = re.compile(r"(?:Rupees|Rs\.?)\s*(\d+)", re.I)
+
+
+def clauses(text: str) -> list[str]:
+    """Split policy text into clause-level segments (numbered items, NB notes, a)/b)/c) sub-points).
+
+    Limits are always stated inside a single clause, so binding a keyword to
+    a number *within the same clause* is far more reliable than a character
+    window that can straddle two neighbouring clauses.
+    """
+    return [c for c in _CLAUSE_SPLIT.split(text) if c.strip()]
+
+
+def clause_with(text: str, near: str) -> str | None:
+    for clause in clauses(text):
+        if near.lower() in clause.lower() and (_PERCENT_RE.search(clause) or _FLAT_RE.search(clause)):
+            return clause
     return None
 
 
+def extract_percent_of_si(text: str, near: str) -> float | None:
+    """The `<pct>% of ... Sum Insured/Assured` figure in the clause mentioning `near`."""
+    clause = clause_with(text, near)
+    m = _PERCENT_RE.search(clause) if clause else None
+    return float(m.group(1)) if m else None
+
+
 def extract_first_percent(text: str) -> float | None:
-    m = re.search(r"([\d.]+)\s*%\s*of\s*(?:the\s*)?(?:Basic\s*)?Sum\s*(?:Insured|Assured)", text, re.I)
+    m = _PERCENT_RE.search(text)
     return float(m.group(1)) if m else None
 
 
 def extract_flat_amount(text: str, near: str) -> float | None:
-    for m in re.finditer(r"Rs\.?\s*(\d+)/?-?|Rupees\s*(\d+)", text, re.I):
-        val = m.group(1) or m.group(2)
-        window = text[max(0, m.start() - 80) : m.start() + 40]
-        if near.lower() in window.lower():
-            return float(val)
-    return None
+    """A flat rupee cap ("Rupees 1000/-") in the clause mentioning `near`."""
+    clause = clause_with(text, near)
+    m = _FLAT_RE.search(clause) if clause else None
+    return float(m.group(1)) if m else None
 
 
 def extract_pre_post_windows(text: str) -> tuple[int | None, int | None]:

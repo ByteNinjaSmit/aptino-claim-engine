@@ -116,7 +116,15 @@ Response (trimmed):
   "applicable_limits": [{"description": "Room/boarding/nursing sub-limit (...)", "deduction_inr": 10000.0, "dimension": "category_sub_limits"}],
   "missing_evidence": [{"field": "expense_timing", "reason": "..."}],
   "citations": [{"claim": "...", "source": "policy.pdf", "page": 7, "section": "What We Cover", "chunk_id": "what_we_cover-002", "rerank_score": 1.2}],
-  "validation": {"status": "PASS", "unsupported_claims": []},
+  "validation": {"status": "PASS", "unsupported_claims": [],
+                 "counts": {"SUPPORTED": 7, "UNSUPPORTED": 0, "CONTRADICTED": 0},
+                 "verifications": [{"claim_id": "C1", "kind": "policy_claim", "claim": "...", "chunk_id": "what_we_exclude-002",
+                                    "verdict": "SUPPORTED", "checks": [{"name": "chunk states 30 days", "passed": true}]}]},
+  "findings": [{"dimension": "category_sub_limits", "status": "SUPPORTS_LIMIT", "chunk_ids": ["..."], "assumptions": ["..."]}],
+  "assumptions": [{"dimension": "...", "assumption": "..."}],
+  "unmodelled_policy_risks": [],
+  "amounts": {"claimed_total_inr": 163200, "total_deductions_inr": 10200, "estimated_payable_inr": 153000},
+  "handoffs": [{"from_agent": "CaseAnalysisAgent", "to_agent": "PolicyEvidenceAgent", "kind": "forward", "payload": "..."}],
   "rationale": "...",
   "trace": [{"agent": "CaseAnalysisAgent", "action": "extract_facts_and_plan", "detail": "...", "elapsed_ms": 0.3, "retrieval_count": null}]
 }
@@ -133,32 +141,44 @@ stack trace.
 python -m aptino_claims.eval.run_eval
 ```
 
-Runs all 12 supplied public cases plus all 5+ candidate cases through the
-full pipeline and writes `eval_results/metrics.json` +
-`eval_results/report.md`, reporting:
+Runs all 12 supplied public cases plus 14 candidate-authored cases through
+the full pipeline (fully offline, deterministic) and writes
+`eval_results/metrics.json` + `eval_results/report.md`. It reports:
 
-- **Decision accuracy** against hand-labeled expected outcomes (see
-  `src/aptino_claims/eval/expected_outcomes.py`, which documents how each
-  label was derived from the policy text).
-- **Retrieval evidence hit rate** — did retrieval surface a chunk
-  containing the on-topic policy language for each case's primary
-  dimension.
-- **Citation validation pass rate** — the Validation Agent's citation/claim
-  cross-check (see `ARCHITECTURE.md` §5).
-- **Required-abstention check** — confirms the cases the assignment
-  requires to resolve as `NEEDS_REVIEW` actually do.
+- **Decision quality** - accuracy, confusion matrix, per-class precision /
+  recall / F1, unsafe-decision rate (confident and wrong), abstention
+  precision / recall. Expected outcomes are hand-derived from the policy text
+  (`eval/expected_outcomes.py` gives the reasoning per case).
+- **Payable amounts** - hand-derived expected deductions vs computed
+  deductions (this caught two extraction bugs that decision accuracy hid).
+- **Retrieval quality** - recall@1/3/5 and MRR against phrase-defined gold
+  evidence (`eval/gold.py`), with an ablation: dense only, BM25 only, RRF
+  fusion, fusion + cross-encoder rerank.
+- **Citation correctness** - gold-citation precision and coverage, plus the
+  evidence verifier's SUPPORTED / UNSUPPORTED / CONTRADICTED counts.
+- **Verifier power** - negative controls: wrong chunks, wrong numbers,
+  tampered arithmetic and flipped decisions are injected and detection is
+  measured (`eval/controls.py`).
+- **Reproducibility** - two cold runs must be byte-identical; latency p50/p95.
 
-See `eval_results/failure_analysis.md` for documented failure cases, root
-causes, and the fixes applied.
+The command exits non-zero if decision accuracy, required abstentions, amount
+exactness, fault detection or determinism regress. See
+`eval_results/failure_analysis.md` for the eleven failures found, their root
+causes and fixes, and the "What this evaluation does not prove" section of
+`eval_results/report.md` for its limits.
 
-**Current results** (`eval_results/report.md`, 12 supplied + 6 candidate cases):
+**Current results** (26 cases; see `eval_results/report.md`):
 
 | Metric | Result |
 |---|---|
-| Decision accuracy | 18/18 (100%) |
-| Citation validation pass rate | 100% |
-| Retrieval evidence hit rate | 100% |
-| Required NEEDS_REVIEW cases correctly abstained | 5/5 |
+| Decision accuracy | 26/26; 0 unsafe decisions |
+| Required abstentions (NEEDS_REVIEW) | 8/8 |
+| Payable-amount exact match | 11/11 |
+| Retrieval recall@5 / MRR (hybrid + rerank) | 1.00 / 1.00 (dense only: 0.98 / 0.82) |
+| Gold-citation precision | 100% of 99 citations |
+| Claims verified against cited chunk | 128/128 |
+| Fault injection detected | 214/214 |
+| Deterministic across two cold runs | yes |
 
 ## 6. Tests
 
