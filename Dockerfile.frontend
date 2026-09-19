@@ -1,0 +1,16 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements-frontend.txt .
+RUN pip install --no-cache-dir -r requirements-frontend.txt
+
+COPY frontend ./frontend
+COPY data/candidate_data ./data/candidate_data
+COPY data/custom_cases ./data/custom_cases
+
+ENV API_URL=http://aptino-claim-backend:7860
+
+EXPOSE 8501
+CMD ["streamlit", "run", "frontend/streamlit_app.py", \
+     "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true"]

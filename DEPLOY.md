@@ -23,6 +23,14 @@ only the first deploy pays the download. The API is then at
 `http://<SSH_HOST>:8000` (`/health`, `/analyze`); put nginx/Caddy in front
 for HTTPS if the frontend is served over HTTPS.
 
+The same workflow also deploys the **Streamlit frontend**
+(`Dockerfile.frontend`, slim image: only `streamlit` + `requests`) as a
+second container on the shared `aptino-net` Docker network. It reaches the
+backend by container name (`API_URL=http://aptino-claim-backend:7860`), so
+no public URL is baked in. Frontend: `http://<SSH_HOST>:8501` (open port
+8501 in the firewall). The backend is deployed and health-checked first;
+the frontend only rolls out if it is healthy.
+
 Rollback: on the VPS, `docker run` the previous `:<git-sha>` tag.
 
 ## 1. Backend — Render (alternative)
