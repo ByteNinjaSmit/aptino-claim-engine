@@ -2,7 +2,7 @@
 name = "aptino-claims"
 version = "0.1.0"
 description = "Policy-aware multi-agent RAG claim decision engine"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

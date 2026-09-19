@@ -42,7 +42,7 @@ eval_results/              metrics.json, report.md, failure_analysis.md
 
 ## 3. Setup (local)
 
-Requires Python 3.10+.
+Requires Python 3.12+ (pinned numpy 2.5 needs it).
 
 ```bash
 python -m venv .venv
@@ -168,17 +168,16 @@ pytest
 
 ## 7. Deployment
 
-Backend on **Render** (free Web Service, deploys from GitHub via the
-repo's `Dockerfile`/`render.yaml`); frontend on a **Hugging Face
-Streamlit Space**. See [`DEPLOY.md`](DEPLOY.md) for exact steps. Both are
-free-tier; no GPU required (all local retrieval models are small ONNX
-models run on CPU).
+Fully Dockerized. Every push to `main` triggers GitHub Actions
+(`.github/workflows/deploy.yml`) to build the backend and frontend images,
+push them to Docker Hub, and roll them out on a VPS with
+`docker compose` (`docker-compose.yml`). No GPU required (all retrieval
+models are small ONNX models run on CPU). See [`DEPLOY.md`](DEPLOY.md).
 
-- Backend: `https://<your-service>.onrender.com`
-- Frontend: `https://<your-username>-aptino-claim-frontend.hf.space`
+- API: `http://<vps>:8000`
+- Frontend: `http://<vps>:8501`
 
-(A Hugging Face Docker Space works too as a backend alternative if your
-account has Docker Spaces enabled — see `DEPLOY.md`.)
+Run the same stack locally: `DOCKERHUB_USERNAME=local docker compose up --build`.
 
 ## 8. Known limitations
 

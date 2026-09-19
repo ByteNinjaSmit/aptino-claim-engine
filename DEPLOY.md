@@ -1,39 +1,44 @@
 # Deployment
 
-Backend on **Render** (free Web Service, deploys straight from GitHub —
-no Docker-tier account restriction like some Hugging Face free accounts
-hit). Frontend on a **Hugging Face Streamlit Space** (Streamlit SDK Spaces
-have no such restriction; only the Docker SDK does on some accounts).
+Everything is Dockerized and deployed to a VPS (tested sizing: 4 vCPU /
+16 GB RAM / 200 GB disk — far more than needed; ~2 GB RAM is plenty).
 
-## 0. Backend on your own VPS via GitHub Actions (preferred)
+## VPS via GitHub Actions + docker compose (primary)
 
 `.github/workflows/deploy.yml` runs on every push to `main`:
-`pytest` → build + push Docker image to Docker Hub → SSH into the VPS,
-pull the new image, replace the container, wait for `/health`.
 
-Required repo secrets (Settings → Secrets and variables → Actions):
-`DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `SSH_HOST`, `SSH_PORT`,
-`SSH_USER`, `SSH_PRIVATE_KEY`.
+1. **build-and-push**: builds `Dockerfile` (backend) and `Dockerfile.frontend`
+   (slim Streamlit image) and pushes both to Docker Hub, tagged `:latest`
+   and `:<git-sha>`.
+2. **deploy**: copies `docker-compose.yml` to `~/aptino-claim` on the VPS
+   over SSH, then runs `docker compose pull && docker compose up -d --wait`.
+   `--wait` blocks until the healthchecks pass (backend first, the
+   frontend `depends_on` it), and the job fails with container logs if they
+   don't.
 
-VPS prerequisites: Docker installed, `SSH_USER` in the `docker` group,
-the public half of `SSH_PRIVATE_KEY` in `~/.ssh/authorized_keys`, and the
-host port (`HOST_PORT`, default 8000, set in the workflow) open in the
-firewall. Models are cached in the named volume `aptino-claim-models`, so
-only the first deploy pays the download. The API is then at
-`http://<SSH_HOST>:8000` (`/health`, `/analyze`); put nginx/Caddy in front
-for HTTPS if the frontend is served over HTTPS.
+Required repo secrets: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `SSH_HOST`,
+`SSH_PORT`, `SSH_USER`, `SSH_PRIVATE_KEY`.
 
-The same workflow also deploys the **Streamlit frontend**
-(`Dockerfile.frontend`, slim image: only `streamlit` + `requests`) as a
-second container on the shared `aptino-net` Docker network. It reaches the
-backend by container name (`API_URL=http://aptino-claim-backend:7860`), so
-no public URL is baked in. Frontend: `http://<SSH_HOST>:8501` (open port
-8501 in the firewall). The backend is deployed and health-checked first;
-the frontend only rolls out if it is healthy.
+VPS prerequisites: Docker + the compose plugin installed, `SSH_USER` in
+the `docker` group, the public half of `SSH_PRIVATE_KEY` in
+`~/.ssh/authorized_keys`, and ports **8000** (API) and **8501** (frontend)
+open in the firewall.
 
-Rollback: on the VPS, `docker run` the previous `:<git-sha>` tag.
+- API: `http://<SSH_HOST>:8000` (`/health`, `/analyze`)
+- Frontend: `http://<SSH_HOST>:8501` (talks to the backend over the compose
+  network at `http://backend:7860`, no public URL baked in)
+- Models are cached in the `models` volume, so only the first deploy pays
+  the ~400 MB download (first boot takes a few minutes).
+- Optional LLM rationale: set `LLM_PROVIDER`, `OPENAI_API_KEY`,
+  `OPENAI_BASE_URL`, `OPENAI_MODEL` in a `.env` file next to the compose
+  file on the VPS (never commit keys).
+- HTTPS: put Caddy/nginx in front if you need it.
+- Rollback: `IMAGE_TAG=<old-sha> DOCKERHUB_USERNAME=<user> docker compose up -d`
+  in `~/aptino-claim` on the VPS.
 
-## 1. Backend — Render (alternative)
+Run the same stack locally: `DOCKERHUB_USERNAME=local docker compose up --build`.
+
+## Alternative: Render backend + HF Streamlit frontend
 
 1. https://dashboard.render.com → **New +** → **Web Service** → connect
    the `aptino-claim-engine` GitHub repo.
@@ -57,7 +62,7 @@ Free-tier note: the service spins down after 15 minutes idle and cold-starts
 (~30-60s, including first-time model download) on the next request — fine
 for review/demo use.
 
-## 2. Frontend — Hugging Face Streamlit Space
+### Frontend — Hugging Face Streamlit Space
 
 ```bash
 pip install -U huggingface_hub
@@ -79,12 +84,12 @@ git checkout main
 Set the Space secret `API_URL` to the Render backend URL from step 1
 (Settings → Variables and secrets), then restart the Space.
 
-## 3. Verify
+### Verify
 
 - `GET https://<backend>.onrender.com/health` → `{"status": "ok", ...}`
 - Open the frontend Space, run a supplied case, confirm citations + trace render.
 
-## Updating after a code change
+### Updating after a code change
 
 - Backend: push to `main` on GitHub — Render auto-redeploys.
 - Frontend: `git checkout deploy-hf-frontend && git merge main && git push hf-frontend deploy-hf-frontend:main && git checkout main`

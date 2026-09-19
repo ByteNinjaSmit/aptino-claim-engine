@@ -1,4 +1,4 @@
-name: CI/CD
+name: Build, push and deploy
 
 on:
   push:
@@ -12,41 +12,8 @@ concurrency:
   group: deploy-production
   cancel-in-progress: false
 
-env:
-  IMAGE_NAME: aptino-claim-backend
-  CONTAINER_NAME: aptino-claim-backend
-  HOST_PORT: "8000"
-  FRONTEND_IMAGE_NAME: aptino-claim-frontend
-  FRONTEND_CONTAINER_NAME: aptino-claim-frontend
-  FRONTEND_PORT: "8501"
-  DOCKER_NETWORK: aptino-net
-  FASTEMBED_CACHE_PATH: ${{ github.workspace }}/.fastembed_cache
-
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-
-      - name: Cache fastembed models
-        uses: actions/cache@v4
-        with:
-          path: .fastembed_cache
-          key: fastembed-${{ hashFiles('requirements.txt') }}-bge-small-v1.5-bge-reranker-base
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Run tests
-        run: pytest -q
-
   build-and-push:
-    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,24 +25,26 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - uses: docker/build-push-action@v6
+      - name: Build and push backend
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/aptino-claim-backend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/aptino-claim-backend:${{ github.sha }}
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
 
-      - uses: docker/build-push-action@v6
+      - name: Build and push frontend
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile.frontend
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.FRONTEND_IMAGE_NAME }}:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/aptino-claim-frontend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/aptino-claim-frontend:${{ github.sha }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
@@ -83,82 +52,39 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to VPS over SSH
-        uses: appleboy/ssh-action@v1.2.0
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-          IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          CONTAINER_NAME: ${{ env.CONTAINER_NAME }}
-          HOST_PORT: ${{ env.HOST_PORT }}
-          FRONTEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }}
-          FRONTEND_CONTAINER_NAME: ${{ env.FRONTEND_CONTAINER_NAME }}
-          FRONTEND_PORT: ${{ env.FRONTEND_PORT }}
-          DOCKER_NETWORK: ${{ env.DOCKER_NETWORK }}
+      - uses: actions/checkout@v4
+
+      - name: Copy compose file to VPS
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           port: ${{ secrets.SSH_PORT }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: DOCKERHUB_USERNAME,DOCKERHUB_TOKEN,IMAGE,CONTAINER_NAME,HOST_PORT,FRONTEND_IMAGE,FRONTEND_CONTAINER_NAME,FRONTEND_PORT,DOCKER_NETWORK
+          source: docker-compose.yml
+          target: aptino-claim
+
+      - name: Pull and restart on VPS
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          IMAGE_TAG: ${{ github.sha }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: ${{ secrets.SSH_PORT }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: DOCKERHUB_USERNAME,DOCKERHUB_TOKEN,IMAGE_TAG
           script_stop: true
           script: |
+            cd aptino-claim
             echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
-            docker pull "$IMAGE"
-            docker pull "$FRONTEND_IMAGE"
-
-            # Shared network: the frontend reaches the backend by container name.
-            docker network inspect "$DOCKER_NETWORK" >/dev/null 2>&1 || docker network create "$DOCKER_NETWORK"
-
-            docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
-            docker run -d \
-              --name "$CONTAINER_NAME" \
-              --network "$DOCKER_NETWORK" \
-              --restart unless-stopped \
-              -p "$HOST_PORT":7860 \
-              -e LLM_PROVIDER=offline \
-              -e FASTEMBED_CACHE_PATH=/models \
-              -v aptino-claim-models:/models \
-              "$IMAGE"
-
-            # First boot downloads the embedding/reranker models into the
-            # named volume; later deploys reuse it.
-            healthy=0
-            for i in $(seq 1 60); do
-              if curl -fsS "http://localhost:$HOST_PORT/health" >/dev/null; then
-                echo "Backend healthy after $((i * 5))s"
-                healthy=1
-                break
-              fi
-              sleep 5
-            done
-            if [ "$healthy" != 1 ]; then
-              echo "Backend health check failed; container logs:"
-              docker logs --tail 100 "$CONTAINER_NAME"
-              docker logout
-              exit 1
-            fi
-
-            docker rm -f "$FRONTEND_CONTAINER_NAME" 2>/dev/null || true
-            docker run -d \
-              --name "$FRONTEND_CONTAINER_NAME" \
-              --network "$DOCKER_NETWORK" \
-              --restart unless-stopped \
-              -p "$FRONTEND_PORT":8501 \
-              -e API_URL="http://$CONTAINER_NAME:7860" \
-              "$FRONTEND_IMAGE"
-
-            for i in $(seq 1 24); do
-              if curl -fsS "http://localhost:$FRONTEND_PORT/_stcore/health" >/dev/null; then
-                echo "Frontend healthy after $((i * 5))s"
-                docker image prune -f
-                docker logout
-                exit 0
-              fi
-              sleep 5
-            done
-
-            echo "Frontend health check failed; container logs:"
-            docker logs --tail 100 "$FRONTEND_CONTAINER_NAME"
+            export DOCKERHUB_USERNAME IMAGE_TAG
+            docker compose pull
+            # --wait blocks until backend and frontend healthchecks pass
+            # (first boot downloads the models, hence the long timeout).
+            docker compose up -d --remove-orphans --wait --wait-timeout 600 \
+              || { docker compose logs --tail 80; exit 1; }
+            docker image prune -f
             docker logout
-            exit 1
