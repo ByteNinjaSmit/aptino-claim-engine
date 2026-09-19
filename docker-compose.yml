@@ -8,8 +8,8 @@ services:
     environment:
       LLM_PROVIDER: ${LLM_PROVIDER:-offline}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.groq.com/openai/v1}
-      OPENAI_MODEL: ${OPENAI_MODEL:-llama-3.1-8b-instant}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gemini-2.5-flash-lite}
       FASTEMBED_CACHE_PATH: /models
     volumes:
       - models:/models

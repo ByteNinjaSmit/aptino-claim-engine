@@ -27,9 +27,9 @@ class Settings:
     llm_provider: str = field(default_factory=lambda: os.getenv("LLM_PROVIDER", "offline"))
     openai_api_key: str = field(default_factory=lambda: os.getenv("OPENAI_API_KEY", ""))
     openai_base_url: str = field(
-        default_factory=lambda: os.getenv("OPENAI_BASE_URL", "https://api.groq.com/openai/v1")
+        default_factory=lambda: os.getenv("OPENAI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai")
     )
-    openai_model: str = field(default_factory=lambda: os.getenv("OPENAI_MODEL", "llama-3.1-8b-instant"))
+    openai_model: str = field(default_factory=lambda: os.getenv("OPENAI_MODEL", "gemini-2.5-flash-lite"))
 
     policy_pdf_path: Path = field(
         default_factory=lambda: _path(

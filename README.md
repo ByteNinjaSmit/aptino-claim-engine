@@ -73,8 +73,8 @@ rationale through a real LLM, set in `.env`:
 ```
 LLM_PROVIDER=openai_compatible
 OPENAI_API_KEY=...
-OPENAI_BASE_URL=https://api.groq.com/openai/v1   # or api.openai.com/v1, etc.
-OPENAI_MODEL=llama-3.1-8b-instant
+OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai   # or api.openai.com/v1, etc.
+OPENAI_MODEL=gemini-2.5-flash-lite
 ```
 
 ## 4. API

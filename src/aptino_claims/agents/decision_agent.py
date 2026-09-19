@@ -63,10 +63,14 @@ def run(state: CaseState, llm: LLMClient) -> CaseState:
         prompt = (
             f"Case {state.case_id}. Decision: {state.decision.value}.\n"
             f"Findings (each already evidence-cited -- do not add new facts):\n{state.rationale}\n\n"
-            "Rewrite as one concise reviewer-facing paragraph."
+            "Rewrite as one concise reviewer-facing paragraph that states the decision "
+            f"({state.decision.value.replace('_', ' ').lower()}) explicitly."
         )
         llm_text = llm.generate_rationale(prompt)
-        if llm_text and len(llm_text) < 4 * len(state.rationale) + 200:
+        # Accept LLM prose only if it stays proportionate and still names the
+        # decision; otherwise keep the deterministic, fully-cited template.
+        normalized = llm_text.lower().replace("_", " ") if llm_text else ""
+        if llm_text and len(llm_text) < 4 * len(state.rationale) + 200 and state.decision.value.lower().replace("_", " ") in normalized:
             state.rationale = llm_text
 
     state.log(
