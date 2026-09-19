@@ -179,12 +179,18 @@ interpretation rather than phrasing, so it is constrained rather than trusted:
 
 - **Grounded**: it may cite only the exclusion chunks it was shown; every
   observation needs a verbatim quote, a `case_span` copied from the case and a
-  `clause_term` copied from the clause; generic-word bridges are rejected; the
-  Validation Agent re-verifies the quote (`quote` assertion).
+  `clause_term` copied from the clause (matched ignoring case and whitespace; the stored
+  text is the policy's own wording); generic-word bridges are rejected; the Validation
+  Agent re-checks the stored quote (`quote` assertion), which guards state tampering but
+  is not an independent second opinion.
 - **One-directional**: an accepted observation is an INSUFFICIENT_EVIDENCE
   finding, so it can only move a case toward NEEDS_REVIEW; it cannot approve,
   reject or change an amount. Case text is passed to the model as data, and a
-  hostile instruction inside it can at worst cause an abstention.
+  hostile instruction inside it can at worst cause an abstention of the decision
+  (fuzzed on all cases). The free-text parts (concern, rationale paragraph) are
+  sanitised and guarded (`text_safety`, override-language and figure checks) but
+  best-effort; the rationale-phrasing call also sees case-derived text and is
+  hardened the same way. The step never raises and reuses its first reply on a retry.
 - **Scoped**: no opinions on durations, dates, amounts or sub-limits.
 - **Measured, not assumed**: `eval/run_llm_mode.py` runs every case with and
   without the step against a real model (README table; `eval_results/llm_mode.md`).

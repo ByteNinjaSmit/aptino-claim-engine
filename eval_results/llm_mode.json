@@ -12,8 +12,8 @@
     "moved_to_a_different_decisive_outcome": [],
     "adversarial_deterministic_needs_review": 0,
     "adversarial_with_llm_needs_review": 3,
-    "observations_accepted": 11,
-    "observations_rejected": 7,
+    "observations_accepted": 12,
+    "observations_rejected": 6,
     "validation_failures": []
   },
   "cases": [
@@ -28,7 +28,7 @@
       "rejected": [],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 7817
+      "latency_ms": 8090
     },
     {
       "case_id": "PUB-002",
@@ -51,7 +51,7 @@
       "rejected": [],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 16599
+      "latency_ms": 9974
     },
     {
       "case_id": "PUB-003",
@@ -64,7 +64,7 @@
       "rejected": [],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 7660
+      "latency_ms": 11163
     },
     {
       "case_id": "PUB-004",
@@ -77,22 +77,17 @@
         {
           "chunk_id": "what_we_exclude-017",
           "type": "exclusion_risk",
-          "case_field": "treatment_type",
-          "case_span": "domiciliary",
+          "case_field": "procedure",
+          "case_span": "Domiciliary treatment",
           "clause_term": "Domiciliary Hospitalisation",
           "quote": "Any expense under Domiciliary Hospitalisation for",
-          "concern": "The claim is for domiciliary treatment, which may be subject to exclusions under the Domiciliary Hospitalisation clause."
+          "concern": "The claim is for domiciliary treatment, which may be subject to exclusions or limitations under the Domiciliary Hospitalisation clause."
         }
       ],
-      "rejected": [
-        {
-          "chunk_id": "what_we_exclude-016",
-          "reason": "bridge is made only of generic words"
-        }
-      ],
+      "rejected": [],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 11404
+      "latency_ms": 11847
     },
     {
       "case_id": "PUB-005",
@@ -110,7 +105,7 @@
       ],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 11113
+      "latency_ms": 12426
     },
     {
       "case_id": "PUB-006",
@@ -123,7 +118,7 @@
       "rejected": [],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 8783
+      "latency_ms": 9191
     },
     {
       "case_id": "PUB-007",
@@ -136,7 +131,7 @@
       "rejected": [],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 9741
+      "latency_ms": 11280
     },
     {
       "case_id": "PUB-008",
@@ -149,7 +144,7 @@
       "rejected": [],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 7630
+      "latency_ms": 7499
     },
     {
       "case_id": "PUB-009",
@@ -162,7 +157,7 @@
       "rejected": [],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 8904
+      "latency_ms": 8065
     },
     {
       "case_id": "PUB-010",
@@ -180,7 +175,7 @@
       ],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 10368
+      "latency_ms": 10239
     },
     {
       "case_id": "PUB-011",
@@ -193,7 +188,7 @@
       "rejected": [],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 7299
+      "latency_ms": 7519
     },
     {
       "case_id": "PUB-012",
@@ -216,7 +211,7 @@
       "rejected": [],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 9755
+      "latency_ms": 10704
     },
     {
       "case_id": "CUST-001",
@@ -226,15 +221,10 @@
       "with_llm": "NOT_ADMISSIBLE",
       "changed": false,
       "accepted": [],
-      "rejected": [
-        {
-          "chunk_id": "what_we_exclude-019",
-          "reason": "bridge is made only of generic words"
-        }
-      ],
+      "rejected": [],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 12343
+      "latency_ms": 9133
     },
     {
       "case_id": "CUST-002",
@@ -247,7 +237,7 @@
       "rejected": [],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 8315
+      "latency_ms": 9190
     },
     {
       "case_id": "CUST-003",
@@ -260,7 +250,7 @@
       "rejected": [],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 6685
+      "latency_ms": 8592
     },
     {
       "case_id": "CUST-004",
@@ -273,7 +263,7 @@
       "rejected": [],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 11427
+      "latency_ms": 11271
     },
     {
       "case_id": "CUST-005",
@@ -284,28 +274,28 @@
       "changed": false,
       "accepted": [
         {
-          "chunk_id": "what_we_exclude-003",
-          "type": "exclusion_risk",
-          "case_field": "diagnosis",
-          "case_span": "Degenerative joint disease",
-          "clause_term": "Arthritis",
-          "quote": "vi) Arthritis, Gout, Rheumatism",
-          "concern": "Degenerative joint disease is a form of arthritis, which is subject to a waiting period under this clause."
-        },
-        {
           "chunk_id": "what_we_exclude-020",
           "type": "exclusion_risk",
           "case_field": "diagnosis",
           "case_span": "Degenerative joint disease",
           "clause_term": "Arthritis",
           "quote": "xii) Arthritis, Gout and Rheumatism",
-          "concern": "Degenerative joint disease is a form of arthritis, which is listed as an excluded disease under this clause."
+          "concern": "Degenerative joint disease is a clinical synonym for osteoarthritis, which is a form of arthritis and is excluded under this clause."
+        },
+        {
+          "chunk_id": "what_we_exclude-003",
+          "type": "exclusion_risk",
+          "case_field": "diagnosis",
+          "case_span": "Degenerative joint disease",
+          "clause_term": "Arthritis",
+          "quote": "vi) Arthritis, Gout, Rheumatism",
+          "concern": "Degenerative joint disease is a type of arthritis, which is excluded from coverage during the first year of the policy."
         }
       ],
       "rejected": [],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 8694
+      "latency_ms": 13469
     },
     {
       "case_id": "CUST-006",
@@ -321,14 +311,14 @@
           "case_field": "diagnosis",
           "case_span": "Severe bronchial asthma exacerbation",
           "clause_term": "bronchial asthamatic condition",
-          "quote": "External medical equipment of any kind used at home as post hospitalisation care like wheelchairs, crutches, instruments used in treatment of sleep apnea syndrome (C.P.A.P) or continuous peritoneal ambulatory dialysis (C.P.A.D) and oxygen concentrator for bronchial asthamatic condition, etc.",
-          "concern": "The diagnosis of severe bronchial asthma exacerbation matches the clause's exclusion of external medical equipment used at home, such as an oxygen concentrator, for a bronchial asthmatic condition."
+          "quote": "instruments used in treatment of sleep apnea syndrome (C.P.A.P) or continuous peritoneal ambulatory dialysis (C.P.A.D) and oxygen concentrator for bronchial asthamatic condition, etc.",
+          "concern": "The claim is for domiciliary treatment of severe bronchial asthma, which may involve external medical equipment like an oxygen concentrator that is excluded under this clause."
         }
       ],
       "rejected": [],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 10941
+      "latency_ms": 12334
     },
     {
       "case_id": "CUST-007",
@@ -338,10 +328,15 @@
       "with_llm": "ADMISSIBLE",
       "changed": false,
       "accepted": [],
-      "rejected": [],
+      "rejected": [
+        {
+          "chunk_id": "what_we_exclude-019",
+          "reason": "bridge is made only of generic words"
+        }
+      ],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 11682
+      "latency_ms": 11679
     },
     {
       "case_id": "CUST-008",
@@ -364,7 +359,7 @@
       "rejected": [],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 8752
+      "latency_ms": 9099
     },
     {
       "case_id": "CUST-009",
@@ -373,11 +368,21 @@
       "deterministic": "NEEDS_REVIEW",
       "with_llm": "NEEDS_REVIEW",
       "changed": false,
-      "accepted": [],
+      "accepted": [
+        {
+          "chunk_id": "what_we_exclude-020",
+          "type": "exclusion_risk",
+          "case_field": "diagnosis",
+          "case_span": "Pregnancy with pre-eclampsia",
+          "clause_term": "Hypertension",
+          "quote": "vii) Hypertension",
+          "concern": "The diagnosis of pre-eclampsia is a pregnancy-induced hypertensive disorder, which may be excluded under the clause for hypertension."
+        }
+      ],
       "rejected": [],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 16420
+      "latency_ms": 12570
     },
     {
       "case_id": "CUST-010",
@@ -405,7 +410,7 @@
       ],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 13946
+      "latency_ms": 13496
     },
     {
       "case_id": "CUST-011",
@@ -418,7 +423,7 @@
       "rejected": [],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 8211
+      "latency_ms": 8060
     },
     {
       "case_id": "CUST-012",
@@ -431,7 +436,7 @@
       "rejected": [],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 8112
+      "latency_ms": 7356
     },
     {
       "case_id": "CUST-013",
@@ -449,7 +454,7 @@
       ],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 10601
+      "latency_ms": 11553
     },
     {
       "case_id": "CUST-014",
@@ -467,7 +472,7 @@
       ],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 9089
+      "latency_ms": 9550
     },
     {
       "case_id": "ADV-001",
@@ -479,18 +484,18 @@
       "accepted": [
         {
           "chunk_id": "what_we_exclude-003",
-          "type": "exclusion_risk",
+          "type": "condition_unmet_risk",
           "case_field": "diagnosis",
           "case_span": "Age-related clouding of the crystalline body of both eyes",
           "clause_term": "Cataract",
           "quote": "Hospitalization expense incurred in the first year of operation of the insurance cover on treatment of the following Diseases: i) Cataract",
-          "concern": "The diagnosis of age-related clouding of the crystalline body of both eyes is a medical description of a cataract, which is subject to a first-year waiting period exclusion."
+          "concern": "The diagnosis of age-related clouding of the crystalline body of both eyes is a plain-language description of a cataract, which is subject to a 1-year waiting period under this policy."
         }
       ],
       "rejected": [],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 9994
+      "latency_ms": 9501
     },
     {
       "case_id": "ADV-002",
@@ -513,7 +518,7 @@
       "rejected": [],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 9912
+      "latency_ms": 10987
     },
     {
       "case_id": "ADV-003",
@@ -530,13 +535,13 @@
           "case_span": "domiciliary",
           "clause_term": "Domiciliary Hospitalisation",
           "quote": "Any expense under Domiciliary Hospitalisation for",
-          "concern": "The treatment is domiciliary, which may be subject to exclusions or limitations under the Domiciliary Hospitalisation clause."
+          "concern": "The treatment type is domiciliary, which matches the scope of the Domiciliary Hospitalisation exclusion clause."
         }
       ],
       "rejected": [],
       "error": null,
       "validation": "PASS",
-      "latency_ms": 8387
+      "latency_ms": 8696
     }
   ]
 }

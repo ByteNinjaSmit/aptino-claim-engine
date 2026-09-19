@@ -188,24 +188,31 @@ flag a clause that applies for reasons the rules do not encode (a paraphrased
 diagnosis such as *gallstones* for *stone in the biliary system*, or a
 restriction scoped to one treatment mode). It is **off by default** and is
 enabled per request (`POST /analyze?llm_interpretation=true`, or the checkbox in
-the UI) or globally (`LLM_INTERPRETATION=on`); it needs `LLM_PROVIDER=openai_compatible`
-and uses `OPENAI_INTERPRETATION_MODEL` (default `gemini-3.5-flash`, a stronger
-model than the rationale writer).
+the UI; `false` forces it off) or globally (`LLM_INTERPRETATION=on`); it needs
+`LLM_PROVIDER=openai_compatible` and uses `OPENAI_INTERPRETATION_MODEL` (default
+`gemini-3.5-flash` on the Gemini endpoint, a stronger model than the rationale writer).
 
 The model's output is treated as untrusted:
 
 - It may cite only the exclusion clauses it was shown, must **quote the clause
-  verbatim**, and must show its bridge in literal text: a `case_span` copied from
-  the case's diagnosis/procedure/treatment mode and a `clause_term` copied from
-  the clause. A bridge made only of generic words ("treatment" <-> "treatment")
-  is rejected. Each accepted quote is verified again by the Validation Agent.
+  verbatim** (matched ignoring case and whitespace; the stored and displayed text is
+  the policy's own wording), and must show its bridge in literal text: a `case_span`
+  copied from the case's diagnosis/procedure/treatment mode and a `clause_term`
+  copied from the clause. A bridge made only of generic words ("treatment" <->
+  "treatment") is rejected. The Validation Agent re-checks the stored quote against
+  the retrieved chunk (a guard against later tampering with state, not an independent
+  second opinion).
 - It is **one-directional**: an accepted observation is an `INSUFFICIENT_EVIDENCE`
   finding. It can push a case toward `NEEDS_REVIEW`; it can never approve a claim,
   reject one, or change an amount. A hostile instruction hidden in a claim can
-  therefore at worst cause an abstention (unit-tested).
+  therefore at worst cause an abstention of the *decision*: this was fuzzed with
+  hostile model output on all 29 cases (no more-permissive outcome, no amount
+  increase). Free-text output (the concern text and the rationale paragraph) is
+  sanitised and guarded but is best-effort, not guaranteed.
 - It has no opinion on durations, dates, amounts or sub-limits (those stay
-  deterministic), and any failure (no key, timeout, invalid JSON) leaves the
-  deterministic result untouched.
+  deterministic). Any failure (no key, timeout, invalid JSON, malformed field types,
+  an exception) leaves the deterministic result untouched (`run` never raises). On a
+  validation retry the first reply is reused, so a case costs one model call.
 
 Measured with a real model (`python -m aptino_claims.eval.run_llm_mode`, results in
 `eval_results/llm_mode.md`; not part of the deterministic gate because it needs an
@@ -216,7 +223,18 @@ API key and model output can vary):
 | Labeled cases unchanged (of 26) | 19 (73%) | 25 (96%) |
 | False alarms on decisive cases | 7 of 18 | 1 of 18 (PUB-004, a label the independent audit also questioned) |
 | Paraphrase cases the rules miss, caught (of 3) | 2, one for the wrong reason | 3, each with a correct bridge |
-| Moved to a different *decisive* outcome | 0 | 0 |
+| Moved to a different *decisive* outcome | 0 | 0 (by construction: the step can only add review flags) |
+
+How much to trust this: 26 labeled + 3 adversarial cases; two full runs (before and after
+the audit fixes) gave the same headline and differed by one accepted observation (11 vs 12), so
+there is some run-to-run variation; the guards were tuned over several runs on these same cases, so 25/26 has a resolution of one
+case, and "unchanged" is a harmlessness check against a system that already scores
+100%, not evidence of benefit. The 3/3 is the whole benefit claim, and ADV-001/002
+are labeled NEEDS_REVIEW because that is the only outcome the step can reach (a
+careful reviewer might call them NOT_ADMISSIBLE: first-year wait, no waiver), so it
+measures "held for a human", not "decided correctly". The strongest evidence is the
+individual bridges ("age-related clouding of the crystalline body" to Cataract,
+"symptomatic gallstones" to the biliary-stone clause), not the percentages.
 
 So the step is only worth enabling with a capable model: the guards contain a weak
 model's mistakes (it can only add review flags) but cannot make it accurate. Cost:

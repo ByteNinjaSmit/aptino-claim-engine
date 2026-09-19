@@ -85,3 +85,32 @@ def test_llm_interpretation_is_opt_in_per_request(client, monkeypatch):
     assert calls == [] and off["llm_interpretation"] == {"enabled": False}
     on = client.post("/analyze?llm_interpretation=true", json=case).json()
     assert calls == [1] and on["llm_interpretation"]["enabled"] and on["llm_interpretation"]["accepted"] == []
+
+
+def test_explicit_false_turns_interpretation_off_even_when_the_server_default_is_on(client, monkeypatch):
+    import json
+    from types import SimpleNamespace
+    from aptino_claims.agents import coverage_exclusion_agent
+    from aptino_claims.api import main
+
+    calls = []
+
+    class SpyLLM:
+        def interpret(self, system, user):
+            calls.append(1)
+            return json.dumps({"observations": []})
+
+        def generate_rationale(self, prompt):
+            return None
+
+    case = {"case_id": "OPT-2", "policy_start_date": "2024-01-01", "claim_date": "2026-01-01", "sum_insured_inr": 500000,
+            "continuous_coverage_months": 24, "hospital": {"name": "H", "network_provider": True},
+            "treatment": {"type": "inpatient", "admission_hours": 96, "diagnosis": "Acute appendicitis", "procedure": "Appendectomy"},
+            "expenses_inr": {"room": 10000, "doctor_fees": 10000, "medicines_diagnostics": 20000}}
+    monkeypatch.setitem(main._state, "llm", SpyLLM())
+    monkeypatch.setattr(coverage_exclusion_agent, "settings", SimpleNamespace(llm_interpretation=True))
+    client.post("/analyze?llm_interpretation=false", json=case)
+    assert calls == []
+    client.post("/analyze", json=case)                      # omitted -> follows the (patched) server setting
+    assert calls == [1]
+    assert client.post("/analyze?llm_interpretation=maybe", json=case).status_code == 422

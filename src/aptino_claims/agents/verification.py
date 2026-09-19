@@ -200,7 +200,7 @@ def _excerpt(text: str, assertion: dict | None, limit: int = 260) -> str:
 
 def verify_state(state: CaseState, corpus: dict[str, str]) -> list[ClaimVerification]:
     retrieved: dict[str, tuple[str, str, int]] = {}
-    for evidence in state.evidence_by_dimension.values():
+    for evidence in list(state.evidence_by_dimension.values()) + [list(state.llm_evidence.values())]:
         for ev in evidence:
             retrieved[ev.chunk_id] = (ev.text, ev.section, ev.page_start)
 

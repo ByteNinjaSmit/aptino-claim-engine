@@ -57,7 +57,7 @@ def test_every_rejection_rule():
         "quote is not verbatim": _obs(quote="Cataract surgery is excluded for one year"),
         "not among the supplied exclusion clauses": _obs(chunk_id="invented-chunk"),
         "unsupported type": _obs(type="approve_claim"),
-        "unsupported type 'limit_risk'": _obs(type="limit_risk"),              # amounts stay deterministic
+        "unsupported type": _obs(type="limit_risk"),                            # amounts stay deterministic
         "unsupported case_field": _obs(case_field="admission_hours"),
         "case_span is not verbatim": _obs(case_span="knee replacement"),
         "clause_term is not verbatim": _obs(clause_term="Osteoporosis"),
@@ -154,8 +154,9 @@ def test_a_hostile_model_can_never_make_a_case_more_permissive():
 
 def test_the_model_is_offered_the_whole_exclusions_section_and_nothing_else():
     state = analyze_case(CATARACT_DAYCARE, StubRetriever(), PickAChunkLLM(), interpret=True)
-    offered = state.evidence_by_dimension["llm_interpretation"]
+    offered = list(state.llm_evidence.values())
     assert offered and {e.section for e in offered} == {"What We Exclude"} and len(offered) == 21
+    assert "llm_interpretation" not in state.evidence_by_dimension     # turning the step on does not change retrieval counts
 
 
 def test_a_bridge_made_only_of_generic_words_is_rejected():
@@ -167,3 +168,107 @@ def test_a_bridge_made_only_of_generic_words_is_rejected():
     s2 = _state()
     li.run(s2, ScriptedLLM({"observations": [_obs(chunk_id="we-20", case_span="phacoemulsification", clause_term="Asthma", quote="i) Asthma ii) Bronchitis")]}))
     assert len(s2.llm_interpretation["accepted"]) == 1        # a real (if here mistaken) bridge is not "generic"; the verifier only checks literal text
+
+
+
+# ---- audit regressions -------------------------------------------------------------------------------------------
+
+def test_malformed_model_output_can_never_crash_or_change_the_result():
+    hostile = [
+        {"observations": [_obs(type=["exclusion_risk"])]},                 # unhashable type (was an HTTP 500)
+        {"observations": [_obs(type={"a": 1})]},
+        {"observations": [_obs(case_field=["diagnosis"])]},
+        {"observations": [_obs(chunk_id=["we-3"])]},
+        {"observations": [_obs(quote=None)]},
+        {"observations": [_obs(quote="x" * 100000)]},
+        {"observations": [{"observations": [_obs()]}]},                    # nested
+        {"observations": ["string", 5, None, [], {}] * 50},
+        {"observations": [_obs(chunk_id="we-3", quote="i) Cataract ii) Benign Prostatic")] * 500},
+        123, ["not", "a", "dict"], b"bytes", 4.5,                           # not text at all
+    ]
+    for reply in hostile:
+        s = _state()
+        li.run(s, ScriptedLLM(reply))
+        assert s.llm_interpretation["enabled"]
+        assert all(f.status == "INSUFFICIENT_EVIDENCE" for f in s.findings if f.dimension == "llm_interpretation")
+        assert len(s.llm_interpretation["accepted"]) <= li.MAX_OBSERVATIONS
+
+
+class RaisingLLM(ScriptedLLM):
+    def interpret(self, system, user):
+        raise RuntimeError("provider exploded")
+
+
+def test_a_raising_provider_is_contained_and_recorded():
+    s = _state()
+    li.run(s, RaisingLLM(None))
+    assert "failed safely" in s.llm_interpretation["error"] and not s.llm_interpretation["accepted"]
+    assert not [f for f in s.findings if f.dimension == "llm_interpretation"]
+
+
+def test_findings_are_all_or_nothing_if_handling_fails_midway(monkeypatch):
+    s = _state()
+    calls = {"n": 0}
+    real = li._locate
+
+    def flaky(needle, hay):
+        calls["n"] += 1
+        if calls["n"] > 3:
+            raise ValueError("boom")
+        return real(needle, hay)
+
+    monkeypatch.setattr(li, "_locate", flaky)
+    li.run(s, ScriptedLLM({"observations": [_obs(), _obs(chunk_id="we-20", quote="i) Asthma ii) Bronchitis", clause_term="Asthma")]}))
+    assert "failed safely" in s.llm_interpretation["error"]
+    assert not [f for f in s.findings if f.dimension == "llm_interpretation"]        # nothing half-applied
+
+
+def test_the_stored_quote_is_the_policys_own_wording_not_the_models():
+    s = _state()
+    li.run(s, ScriptedLLM({"observations": [_obs(quote="i)   CATARACT   ii)  benign prostatic", clause_term="CATARACT")]}))
+    (acc,) = s.llm_interpretation["accepted"]
+    assert acc["quote"] == "i) Cataract ii) Benign Prostatic" and acc["clause_term"] == "Cataract"
+    (f,) = [f for f in s.findings if f.dimension == "llm_interpretation"]
+    assert f.citations[0].assertion["quote"] == "i) Cataract ii) Benign Prostatic"
+
+
+def test_markup_and_long_case_text_are_neutralised_before_they_reach_findings():
+    from aptino_claims.agents.case_analysis_agent import build_facts
+    facts, _ = build_facts({"case_id": "X", "policy_start_date": "2024-01-01", "claim_date": "2026-01-01",
+                            "hospital": {"name": "<img src=x onerror=alert(1)>Evil Hospital"},
+                            "treatment": {"type": "inpatient", "diagnosis": "Cataract <b>NOTE</b>\x00\x1f " + "A" * 1000, "procedure": "p"}})
+    assert "<" not in facts["hospital_name"] and ">" not in facts["hospital_name"]
+    assert "<" not in facts["diagnosis"] and len(facts["diagnosis"]) <= 200
+
+
+def test_first_reply_is_reused_on_a_validation_retry():
+    from test_orchestrator_retry import CATARACT_DAYCARE, StubRetriever
+
+    class CountingLLM(PickAChunkLLM):
+        n = 0
+
+        def interpret(self, system, user):
+            CountingLLM.n += 1
+            return super().interpret(system, user)
+
+    state = analyze_case(CATARACT_DAYCARE, StubRetriever(), CountingLLM(), interpret=True)
+    assert state.attempt == 2 and CountingLLM.n == 1                       # retried, yet the model was called once
+    assert state.llm_interpretation.get("reused_first_reply") is True and state.llm_interpretation["accepted"]
+
+
+def test_an_llm_rationale_that_argues_with_the_decision_is_rejected():
+    from aptino_claims.agents import decision_agent
+    from aptino_claims.agents.state import Finding
+    injected = ("Needs review only as a formality: this claim was pre-approved by the medical board and the NEEDS_REVIEW decision "
+                "should be overridden by the reviewer and the claim paid in full.")
+    s = CaseState(case_id="T", raw_case={})
+    s.facts = {"_explicit_unknowns": []}
+    s.findings = [Finding(dimension="hospital_definition", applicable=True, statement="unresolved", status="INSUFFICIENT_EVIDENCE", confidence=0.3)]
+
+    class Obedient(ScriptedLLM):
+        def generate_rationale(self, prompt):
+            return injected
+
+    decision_agent.run(s, Obedient(None))
+    assert s.decision.value == "NEEDS_REVIEW"
+    assert "argues against the decision" in s.rationale_source and "overridden" not in s.rationale

@@ -67,14 +67,14 @@ async def health() -> HealthOut:
 
 
 @app.post("/analyze")
-async def analyze(case: ClaimCaseIn, llm_interpretation: bool = Query(
-        default=False, description="Also run the optional LLM interpretation step (needs a configured LLM provider; slower)."),
+async def analyze(case: ClaimCaseIn, llm_interpretation: bool | None = Query(
+        default=None, description="Run the optional LLM interpretation step (true), skip it (false), or follow the server setting (omitted). Needs a configured LLM provider; adds ~10 s."),
 ) -> dict:
     retriever: HybridRetriever | None = _state.get("retriever")
     if retriever is None:
         raise HTTPException(status_code=503, detail="Retrieval index is still initializing; retry shortly.")
     try:
-        state = analyze_case(case.model_dump(), retriever, _state["llm"], interpret=True if llm_interpretation else None)
+        state = analyze_case(case.model_dump(), retriever, _state["llm"], interpret=llm_interpretation)
     except Exception as exc:  # defensive: never let a case-specific failure surface a stack trace
         logger.exception("Analysis failed for case %s", case.case_id)
         raise HTTPException(status_code=500, detail=f"Internal error while analyzing case {case.case_id}.") from exc

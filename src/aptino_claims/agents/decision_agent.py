@@ -24,6 +24,9 @@ _WHOLE_CLAIM_EXCLUSION_DIMS = {
 }
 
 
+# Language that argues for changing the outcome. A legitimate rationale explains the decision; it never
+# tells the reviewer to overrule it, so text like this on a non-approving decision came from injected input.
+_OVERRIDE = re.compile(r"\b(overrid\w*|overrul\w*|pre-?approved|disregard\w*|ignore (?:the|all|any|previous)|paid in full|must be paid|should be approved)\b", re.I)
 _NUMBER = re.compile(r"\d+(?:\.\d+)?")
 
 
@@ -49,6 +52,8 @@ def _guard_llm_rationale(state: CaseState, llm_text: str | None) -> tuple[str | 
         return None, "LLM text disproportionately long"
     if state.decision.value.lower().replace("_", " ") not in llm_text.lower().replace("_", " "):
         return None, "LLM text does not name the decision"
+    if not state.decision.value.startswith("ADMISSIBLE") and _OVERRIDE.search(llm_text):
+        return None, "LLM text argues against the decision"
     allowed = _numbers(" ".join([
         state.rationale, json.dumps(state.raw_case, default=str),
         " ".join(l.description for l in state.applicable_limits), json.dumps(state._amounts(state.decision.value)),

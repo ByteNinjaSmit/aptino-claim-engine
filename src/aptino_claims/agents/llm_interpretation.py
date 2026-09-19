@@ -12,22 +12,27 @@ four constraints:
 1. **Closed, cited evidence.** The model is shown the full "What We Exclude"
    section (a closed set of short clauses, so nothing is missed by retrieval
    ranking) and may cite only those numbered chunks. Every observation must
-   carry a *verbatim quote*; it is checked here and again by the Validation
-   Agent (`quote` assertion). Non-existent chunks, clauses already handled by a
-   modelled check, and non-verbatim quotes are discarded and recorded.
+   carry a *verbatim quote* (matched ignoring case and whitespace; what is stored
+   and shown is the policy's own wording, never the model's rendering). Non-existent
+   chunks, clauses already handled by a modelled check, and non-verbatim quotes are
+   discarded and recorded. The Validation Agent re-checks the stored quote against the
+   retrieved chunk; that guards against later tampering with state, it is not an
+   independent second opinion.
 2. **One-directional.** An accepted observation becomes an
    INSUFFICIENT_EVIDENCE finding. It can push the outcome toward NEEDS_REVIEW;
    it can never approve a claim, reject one, or change an amount. Even a
    fully successful prompt injection through the case text can at worst cause
-   an abstention.
+   an abstention *of the decision*; free-text fields (the concern, the rationale
+   paragraph) are sanitised and guarded but are best-effort, not guaranteed.
 3. **Scoped and bridged.** No opinions on durations, dates, amounts or
    sub-limits (computed and verified deterministically). Each observation must
    show its bridge in literal text: a `case_span` copied from the case's
    diagnosis/procedure/treatment mode and a `clause_term` copied from the
    clause, both verified. "The case does not mention it" is not grounds to flag.
 4. **Optional and degradable.** Off by default (`LLM_INTERPRETATION=off`).
-   With no provider, a failed call or malformed JSON the pipeline is exactly
-   the deterministic one.
+   With no provider, a failed call, malformed JSON or any exception while handling
+   the reply, the pipeline is exactly the deterministic one (`run` never raises).
+   On a validation retry the first reply is reused, so there is one model call per case.
 """
 from __future__ import annotations
 
@@ -36,6 +41,7 @@ import re
 
 from .dimensions import cite
 from .state import CaseState, EvidenceItem, Finding, MissingEvidence
+from .text_safety import clean
 
 DIMENSION = "llm_interpretation"
 EXCLUSION_SECTION = "What We Exclude"
@@ -88,8 +94,25 @@ def _norm(text: str) -> str:
     return _WS.sub(" ", text.lower()).strip()
 
 
+def _locate(needle: str, haystack: str) -> str | None:
+    """The slice of `haystack` that matches `needle` ignoring case and runs of whitespace.
+
+    The comparison is case- and whitespace-insensitive, so what is stored and shown is
+    always the *source text's own* wording, never the model's rendering of it.
+    """
+    tokens = needle.split()
+    if not tokens:
+        return None
+    match = re.search(r"\s+".join(re.escape(t) for t in tokens), haystack, flags=re.I)
+    return match.group(0) if match else None
+
+
 def gather_candidates(state: CaseState, retriever=None) -> dict[str, EvidenceItem]:
-    """The exclusion clauses offered to the model, registered as evidence so they can be verified."""
+    """The exclusion clauses offered to the model.
+
+    Kept in `state.llm_evidence` (not `evidence_by_dimension`) so that turning the step on does
+    not change retrieval counts; the verifier and excerpt lookup consult it explicitly.
+    """
     candidates: dict[str, EvidenceItem] = {}
     if retriever is not None:
         for cid, meta in retriever.chunk_meta.items():
@@ -101,7 +124,7 @@ def gather_candidates(state: CaseState, retriever=None) -> dict[str, EvidenceIte
             for ev in evidence:
                 if ev.section == EXCLUSION_SECTION:
                     candidates.setdefault(ev.chunk_id, ev)
-    state.evidence_by_dimension[DIMENSION] = sorted(candidates.values(), key=lambda e: e.chunk_id)
+    state.llm_evidence = dict(candidates)
     return candidates
 
 
@@ -133,27 +156,53 @@ def parse_reply(raw: str) -> list | None:
 
 
 def run(state: CaseState, llm, retriever=None) -> None:
-    """Ask the model for observations, verify them, and append accepted ones as findings."""
+    """Ask the model for observations, verify them, and append accepted ones as findings.
+
+    Never raises: the model's output is untrusted, so any failure while handling it leaves the
+    deterministic result untouched and is recorded in `state.llm_interpretation["error"]`.
+    """
     report: dict = {"enabled": True, "called": False, "reply_received": False, "accepted": [], "rejected": [], "error": None}
     state.llm_interpretation = report
+    try:
+        findings, missing = _interpret(state, llm, retriever, report)
+    except Exception as exc:  # noqa: BLE001 - untrusted input must never break the pipeline
+        report["accepted"] = []
+        report["error"] = f"interpretation failed safely ({type(exc).__name__}); deterministic result stands"
+        return
+    state.findings.extend(findings)
+    state.missing_fields.extend(missing)
 
+
+def _interpret(state: CaseState, llm, retriever, report: dict) -> tuple[list[Finding], list[MissingEvidence]]:
     candidates = gather_candidates(state, retriever)
-    system, user = build_prompt(state, candidates)
-    raw = llm.interpret(system, user)
+    # On a validation retry the first reply is reused: one model call per case, and the two
+    # attempts cannot disagree because a nondeterministic model answered twice.
+    if "raw" in state.llm_cache:
+        raw = state.llm_cache["raw"]
+        report["reused_first_reply"] = True
+    else:
+        system, user = build_prompt(state, candidates)
+        raw = llm.interpret(system, user)
+        state.llm_cache["raw"] = raw
     report["called"] = True
     if raw is None:
         report["error"] = "no LLM reply (provider unavailable or call failed); deterministic result stands"
-        return
+        return [], []
+    if not isinstance(raw, str):
+        report["error"] = "LLM reply was not text; ignored"
+        return [], []
     report["reply_received"] = True
     observations = parse_reply(raw)
     if observations is None:
         report["error"] = "LLM reply was not valid JSON with an 'observations' list; ignored"
-        return
+        return [], []
 
     cited = {c.chunk_id for f in state.findings for c in f.citations}
     seen: set[str] = set()
+    findings: list[Finding] = []
+    missing: list[MissingEvidence] = []
 
-    for obs in observations:
+    for obs in observations[:20]:
         d = obs if isinstance(obs, dict) else {}
         cid, quote, concern, kind, field = (d.get("chunk_id"), d.get("quote"), d.get("concern"), d.get("type"), d.get("case_field"))
         span, term = d.get("case_span"), d.get("clause_term")
@@ -163,10 +212,10 @@ def run(state: CaseState, llm, retriever=None) -> None:
 
         if not (isinstance(cid, str) and isinstance(quote, str) and isinstance(concern, str)):
             reject("malformed observation")
-        elif kind not in ALLOWED_TYPES:
-            reject(f"unsupported type {kind!r}")
-        elif field not in ALLOWED_FIELDS:
-            reject(f"unsupported case_field {field!r}")
+        elif not (isinstance(kind, str) and kind in ALLOWED_TYPES):
+            reject("unsupported type")
+        elif not (isinstance(field, str) and field in ALLOWED_FIELDS):
+            reject("unsupported case_field")
         elif cid not in candidates:
             reject("cited chunk was not among the supplied exclusion clauses")
         elif cid in cited:
@@ -175,31 +224,35 @@ def run(state: CaseState, llm, retriever=None) -> None:
             reject("duplicate chunk")
         elif not 8 <= len(quote.strip()) <= 300:
             reject("quote length out of range")
-        elif _norm(quote) not in _norm(candidates[cid].text):
+        elif (quote_real := _locate(quote, candidates[cid].text)) is None:
             reject("quote is not verbatim text of the cited chunk")
         elif not (isinstance(span, str) and isinstance(term, str) and len(span.strip()) >= 3 and len(term.strip()) >= 3):
             reject("missing case_span / clause_term bridge")
-        elif _norm(span) not in _norm(str(state.facts.get(field) or "")):
+        elif (span_real := _locate(span, str(state.facts.get(field) or ""))) is None:
             reject("case_span is not verbatim text of the named case field")
-        elif _norm(term) not in _norm(candidates[cid].text):
+        elif (term_real := _locate(term, candidates[cid].text)) is None:
             reject("clause_term is not verbatim text of the cited clause")
-        elif not (_meaningful(span) and _meaningful(term)):
+        elif not (_meaningful(span_real) and _meaningful(term_real)):
             reject("bridge is made only of generic words")
         elif len(report["accepted"]) >= MAX_OBSERVATIONS:
             reject("observation limit reached")
         else:
             seen.add(cid)
             ev = candidates[cid]
-            concern_text = _WS.sub(" ", concern).strip()[:300]
+            span_txt, term_txt, quote_txt = clean(span_real, 120), clean(term_real, 120), clean(quote_real, 300)
+            concern_text = clean(concern, 300)
             statement = (
-                f"LLM-suggested concern ({kind.replace('_', ' ')}): the case's {field.replace('_', ' ')} \"{span.strip()}\" may correspond to \"{term.strip()}\" in the policy. {concern_text} "
-                f"Cited clause: \"{quote.strip()}\" ({ev.label}, page {ev.page_start}). "
+                f"LLM-suggested concern ({kind.replace('_', ' ')}): the case's {field.replace('_', ' ')} \"{span_txt}\" "
+                f"may correspond to \"{term_txt}\" in the policy. {concern_text} "
+                f"Cited clause: \"{quote_txt}\" ({ev.label}, page {ev.page_start}). "
                 "No modelled rule evaluates this, so the system will not decide on its own; a reviewer should confirm."
             )
-            state.findings.append(Finding(
+            findings.append(Finding(
                 dimension=DIMENSION, applicable=True, statement=statement, status="INSUFFICIENT_EVIDENCE",
-                citations=[cite(ev, "Clause flagged by the LLM interpretation step", {"type": "quote", "quote": quote.strip()})],
+                citations=[cite(ev, "Clause flagged by the LLM interpretation step", {"type": "quote", "quote": quote_real})],
                 confidence=0.3, source="llm",
             ))
-            state.missing_fields.append(MissingEvidence(field=DIMENSION, reason=statement))
-            report["accepted"].append({"chunk_id": cid, "type": kind, "case_field": field, "case_span": span.strip(), "clause_term": term.strip(), "quote": quote.strip(), "concern": concern_text})
+            missing.append(MissingEvidence(field=DIMENSION, reason=statement))
+            report["accepted"].append({"chunk_id": cid, "type": kind, "case_field": field, "case_span": span_txt,
+                                       "clause_term": term_txt, "quote": quote_txt, "concern": concern_text})
+    return findings, missing

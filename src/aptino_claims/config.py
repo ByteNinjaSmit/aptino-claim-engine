@@ -31,7 +31,11 @@ class Settings:
     )
     openai_model: str = field(default_factory=lambda: os.getenv("OPENAI_MODEL", "gemini-2.5-flash-lite"))
     openai_interpretation_model: str = field(
-        default_factory=lambda: os.getenv("OPENAI_INTERPRETATION_MODEL") or os.getenv("OPENAI_MODEL", "gemini-2.5-flash-lite")
+        default_factory=lambda: os.getenv("OPENAI_INTERPRETATION_MODEL") or (
+            # the interpretation step needs a capable model (see eval_results/llm_mode.md); on the default
+            # Gemini endpoint use the one it was measured with, elsewhere fall back to the configured model
+            "gemini-3.5-flash" if "generativelanguage" in os.getenv("OPENAI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai")
+            else os.getenv("OPENAI_MODEL", "gemini-2.5-flash-lite"))
     )
     llm_interpretation: bool = field(
         default_factory=lambda: os.getenv("LLM_INTERPRETATION", "off").strip().lower() in ("on", "true", "1", "yes")

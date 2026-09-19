@@ -13,6 +13,7 @@ from datetime import date
 
 from .dimensions import DIMENSIONS
 from .state import CaseState, MissingEvidence
+from .text_safety import clean
 
 _KNOWN_TOP_LEVEL_FIELDS = {
     "case_id", "policy_id", "policy_start_date", "claim_date", "sum_insured_inr",
@@ -65,15 +66,15 @@ def build_facts(raw_case: dict) -> tuple[dict, list[MissingEvidence]]:
         "days_since_policy_start": days_since_start,
         "treatment_type": treatment.get("type", "inpatient"),
         "admission_hours": treatment.get("admission_hours", 24),
-        "diagnosis": treatment.get("diagnosis", ""),
-        "procedure": treatment.get("procedure", ""),
+        "diagnosis": clean(treatment.get("diagnosis", ""), 200),
+        "procedure": clean(treatment.get("procedure", ""), 200),
         "pre_existing": treatment.get("pre_existing", False),
         "experimental": treatment.get("experimental", False),
         "package_charges_agreed": bool(treatment.get("package_charges_agreed", False)),
         "hospital_room_unavailable": treatment.get("hospital_room_unavailable"),
         "patient_cannot_be_moved": treatment.get("patient_cannot_be_moved"),
         "hospital_network_provider": hospital.get("network_provider", False),
-        "hospital_name": hospital.get("name", "the treating facility"),
+        "hospital_name": clean(hospital.get("name", "the treating facility"), 120) or "the treating facility",
         "expenses": expenses,
         "documents": raw_case.get("documents", []),
         "evidence_context": raw_case.get("evidence_context") or {},

@@ -94,7 +94,7 @@ def _write_md(s: dict, rows: list[dict]) -> None:
          f"| Labeled-case accuracy, deterministic | {s['labeled_accuracy_deterministic']:.1%} |",
          f"| Labeled-case accuracy, with LLM step | {s['labeled_accuracy_with_llm']:.1%} |",
          f"| False alarms (decisive case sent to review) | {len(s['false_alarms'])} ({s['false_alarm_rate_on_decisive_cases']:.0%} of decisive cases): {', '.join(s['false_alarms']) or '-'} |",
-         f"| Moved to a different *decisive* outcome | {len(s['moved_to_a_different_decisive_outcome'])} (must be 0: the step is one-directional) |",
+         f"| Moved to a different *decisive* outcome | {len(s['moved_to_a_different_decisive_outcome'])} (0 by construction: the step can only add review flags; listed to expose a bug) |",
          f"| Adversarial cases held for review: deterministic / with LLM | {s['adversarial_deterministic_needs_review']} / {s['adversarial_with_llm_needs_review']} of {s['n_adversarial']} |",
          f"| Observations accepted / rejected | {s['observations_accepted']} / {s['observations_rejected']} |",
          f"| Validation failures | {len(s['validation_failures'])} |", "",
@@ -106,7 +106,13 @@ def _write_md(s: dict, rows: list[dict]) -> None:
             rej = "; ".join(x["reason"] for x in r["rejected"]) or "-"
             L.append(f"| {r['case_id']} | {r['expected']} | {r['deterministic']} | {r['with_llm']} | {acc} | {rej} |")
     L += ["", "The step can only add INSUFFICIENT_EVIDENCE findings backed by a verbatim quote, so a change is always toward NEEDS_REVIEW.",
-          "A false alarm costs a human look; a catch prevents a confident wrong answer on a paraphrase the rules do not match."]
+          "A false alarm costs a human look; a catch prevents a confident wrong answer on a paraphrase the rules do not match.", "",
+          "## How much to trust this", "",
+          f"- {s['n_labeled']} labeled + {s['n_adversarial']} adversarial cases. Two full runs (before/after audit fixes) gave the same headline and differed by one accepted observation; the guards were tuned over several runs on these same cases.",
+          "- 'Unchanged' is measured against a deterministic system that already scores 100% on these labels, so the metric can only go down: it is a harmlessness check, not evidence of benefit.",
+          "- The adversarial cases are labeled NEEDS_REVIEW because that is the only outcome the step can reach. A careful reviewer might call ADV-001/002 NOT_ADMISSIBLE (first-year wait, no waiver); 3/3 therefore measures 'held for a human', not 'decided correctly'.",
+          "- Temperature 0 does not make a hosted model deterministic: observation counts varied between the two runs.",
+          "- The individual bridges (e.g. 'symptomatic gallstones' to the biliary-stone clause) are the strongest evidence, not the percentages."]
     (RESULTS_DIR / "llm_mode.md").write_text("\n".join(L) + "\n", encoding="utf-8")
 
 

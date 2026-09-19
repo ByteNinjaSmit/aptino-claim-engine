@@ -149,6 +149,8 @@ class CaseState(BaseModel):
     rationale: str = ""
     rationale_source: str = "template"
     llm_interpretation: dict[str, Any] = Field(default_factory=lambda: {"enabled": False})
+    llm_cache: dict[str, Any] = Field(default_factory=dict)          # first model reply, reused on a retry
+    llm_evidence: dict[str, EvidenceItem] = Field(default_factory=dict)   # clauses offered to the model (verifiable, not counted as retrieval)
 
     validation: ValidationOutcome | None = None
     trace: list[TraceEvent] = Field(default_factory=list)
@@ -223,7 +225,8 @@ class CaseState(BaseModel):
         return list(seen.values())
 
     def _excerpt_for(self, chunk_id: str, limit: int = 600) -> str | None:
-        for evidence in self.evidence_by_dimension.values():
+        pools = list(self.evidence_by_dimension.values()) + [list(self.llm_evidence.values())]
+        for evidence in pools:
             for item in evidence:
                 if item.chunk_id == chunk_id:
                     text = item.text
