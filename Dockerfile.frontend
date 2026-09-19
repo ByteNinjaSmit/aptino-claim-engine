@@ -8,6 +8,7 @@ RUN pip install --no-cache-dir -r requirements-frontend.txt
 COPY frontend ./frontend
 COPY data/candidate_data ./data/candidate_data
 COPY data/custom_cases ./data/custom_cases
+COPY eval_results/metrics.json ./eval_results/metrics.json
 
 ENV API_URL=http://aptino-claim-backend:7860
 

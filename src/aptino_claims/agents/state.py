@@ -118,19 +118,57 @@ class CaseState(BaseModel):
                 seen[(c.chunk_id, c.claim)] = c
         return list(seen.values())
 
+    def _excerpt_for(self, chunk_id: str, limit: int = 600) -> str | None:
+        for evidence in self.evidence_by_dimension.values():
+            for item in evidence:
+                if item.chunk_id == chunk_id:
+                    text = item.text
+                    return text if len(text) <= limit else text[:limit].rsplit(" ", 1)[0] + " ..."
+        return None
+
+    def _amounts(self, decision: str) -> dict:
+        expenses = {k: v for k, v in (self.raw_case.get("expenses_inr") or {}).items() if isinstance(v, (int, float))}
+        claimed = float(sum(expenses.values()))
+        deductions = float(sum((l.deduction_inr or 0) for l in self.applicable_limits))
+        if decision == DecisionStatus.NEEDS_REVIEW.value:
+            payable = None
+        elif decision == DecisionStatus.NOT_ADMISSIBLE.value:
+            payable = 0.0
+        else:
+            payable = max(0.0, claimed - deductions)
+        return {
+            "claimed_total_inr": claimed,
+            "total_deductions_inr": deductions,
+            "estimated_payable_inr": payable,
+            "expense_breakdown_inr": expenses,
+        }
+
     def to_response(self) -> dict:
         key_findings = [f.statement for f in self.findings if f.applicable]
+        decision = self.decision.value if self.decision else DecisionStatus.NEEDS_REVIEW.value
         return {
             "case_id": self.case_id,
-            "decision": self.decision.value if self.decision else DecisionStatus.NEEDS_REVIEW.value,
+            "decision": decision,
             "confidence": round(self.confidence, 2),
             "key_findings": key_findings,
+            "findings": [
+                {
+                    "dimension": f.dimension,
+                    "status": f.status,
+                    "statement": f.statement,
+                    "confidence": f.confidence,
+                    "applicable": f.applicable,
+                    "chunk_ids": [c.chunk_id for c in f.citations],
+                }
+                for f in self.findings
+            ],
+            "amounts": self._amounts(decision),
             "applicable_limits": [
                 {"description": l.description, "deduction_inr": l.deduction_inr, "dimension": l.dimension}
                 for l in self.applicable_limits
             ],
             "missing_evidence": [m.model_dump() for m in self.missing_fields],
-            "citations": [c.model_dump() for c in self.all_citations()],
+            "citations": [{**c.model_dump(), "excerpt": self._excerpt_for(c.chunk_id)} for c in self.all_citations()],
             "validation": self.validation.model_dump() if self.validation else {"status": "PASS", "unsupported_claims": []},
             "rationale": self.rationale,
             "trace": [t.model_dump() for t in self.trace],
