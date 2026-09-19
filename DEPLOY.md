@@ -5,7 +5,27 @@ no Docker-tier account restriction like some Hugging Face free accounts
 hit). Frontend on a **Hugging Face Streamlit Space** (Streamlit SDK Spaces
 have no such restriction; only the Docker SDK does on some accounts).
 
-## 1. Backend — Render
+## 0. Backend on your own VPS via GitHub Actions (preferred)
+
+`.github/workflows/deploy.yml` runs on every push to `main`:
+`pytest` → build + push Docker image to Docker Hub → SSH into the VPS,
+pull the new image, replace the container, wait for `/health`.
+
+Required repo secrets (Settings → Secrets and variables → Actions):
+`DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `SSH_HOST`, `SSH_PORT`,
+`SSH_USER`, `SSH_PRIVATE_KEY`.
+
+VPS prerequisites: Docker installed, `SSH_USER` in the `docker` group,
+the public half of `SSH_PRIVATE_KEY` in `~/.ssh/authorized_keys`, and the
+host port (`HOST_PORT`, default 8000, set in the workflow) open in the
+firewall. Models are cached in the named volume `aptino-claim-models`, so
+only the first deploy pays the download. The API is then at
+`http://<SSH_HOST>:8000` (`/health`, `/analyze`); put nginx/Caddy in front
+for HTTPS if the frontend is served over HTTPS.
+
+Rollback: on the VPS, `docker run` the previous `:<git-sha>` tag.
+
+## 1. Backend — Render (alternative)
 
 1. https://dashboard.render.com → **New +** → **Web Service** → connect
    the `aptino-claim-engine` GitHub repo.
