@@ -28,6 +28,11 @@ def to_evidence_items(results: list[RetrievalResult]) -> list[EvidenceItem]:
             for r in results]
 
 
+def has_term(text: str, term: str) -> bool:
+    """Match a policy term at the start of a word (so 'cyst' matches 'cysts' but not 'cholecystectomy')."""
+    return re.search(r"(?<![a-z0-9])" + re.escape(term), text.lower()) is not None
+
+
 def cite(ev: EvidenceItem, claim: str, assertion: dict | None = None) -> Citation:
     return Citation(claim=claim, page=ev.page_start, section=ev.section, chunk_id=ev.chunk_id,
                     rerank_score=ev.rerank_score, assertion=assertion)
@@ -134,7 +139,7 @@ _NAMED_DISEASE_KEYWORDS = [
 
 def _named_disease_match(facts: dict) -> bool:
     text = f"{facts.get('diagnosis','')} {facts.get('procedure','')}".lower()
-    return any(kw in text for kw in _NAMED_DISEASE_KEYWORDS)
+    return any(has_term(text, kw) for kw in _NAMED_DISEASE_KEYWORDS)
 
 
 def _named_disease_applies(facts: dict) -> bool:
@@ -385,7 +390,7 @@ def _daycare_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
     if not evidence:
         return _no_evidence(dim, "Could not retrieve the Day Care Treatment definition.")
     text = f"{facts.get('diagnosis','')} {facts.get('procedure','')}".lower()
-    named_terms = sorted({wording for kw, wording in _NAMED_DAYCARE.items() if kw in text})
+    named_terms = sorted({wording for kw, wording in _NAMED_DAYCARE.items() if has_term(text, kw)})
     definition = _find_source(evidence, "less than 24 hrs")
 
     if named_terms:
@@ -510,7 +515,7 @@ _INJURY_CONTEXT_KEYWORDS = ["accident", "injury", "burn", "trauma", "reconstruct
 
 def _cosmetic_applies(facts: dict) -> bool:
     text = f"{facts.get('diagnosis','')} {facts.get('procedure','')}".lower()
-    return any(kw in text for kw in _COSMETIC_KEYWORDS)
+    return any(has_term(text, kw) for kw in _COSMETIC_KEYWORDS)
 
 
 def _cosmetic_query(facts: dict) -> str:
@@ -523,7 +528,7 @@ def _cosmetic_eval(facts: dict, evidence: list[EvidenceItem]) -> EvalResult:
         return _no_evidence(dim, "Could not retrieve the cosmetic/aesthetic treatment exclusion clause.")
     top = evidence[0]
     text = f"{facts.get('diagnosis','')} {facts.get('procedure','')}".lower()
-    injury_context = any(kw in text for kw in _INJURY_CONTEXT_KEYWORDS)
+    injury_context = any(has_term(text, kw) for kw in _INJURY_CONTEXT_KEYWORDS)
 
     if injury_context:
         return _no_evidence(dim, "Diagnosis/procedure mentions cosmetic terms alongside an injury context; cannot confirm from supplied evidence whether the injury/disease carve-out applies.")

@@ -10,6 +10,8 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai}
       OPENAI_MODEL: ${OPENAI_MODEL:-gemini-2.5-flash-lite}
+      OPENAI_INTERPRETATION_MODEL: ${OPENAI_INTERPRETATION_MODEL:-gemini-3.5-flash}
+      LLM_INTERPRETATION: ${LLM_INTERPRETATION:-off}
       FASTEMBED_CACHE_PATH: /models
     volumes:
       - models:/models

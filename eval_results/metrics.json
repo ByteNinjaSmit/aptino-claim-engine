@@ -153,28 +153,28 @@
     ]
   },
   "retrieval": {
-    "n_case_dimension_pairs": 104,
+    "n_case_dimension_pairs": 103,
     "systems": {
       "dense": {
-        "recall@1": 0.527,
-        "recall@3": 0.819,
+        "recall@1": 0.523,
+        "recall@3": 0.817,
         "recall@5": 0.981,
-        "mrr": 0.815
+        "mrr": 0.814
       },
       "sparse": {
-        "recall@1": 0.811,
+        "recall@1": 0.809,
         "recall@3": 0.905,
         "recall@5": 1.0,
         "mrr": 0.968
       },
       "fused": {
-        "recall@1": 0.724,
+        "recall@1": 0.722,
         "recall@3": 0.981,
         "recall@5": 1.0,
-        "mrr": 0.933
+        "mrr": 0.932
       },
       "reranked": {
-        "recall@1": 0.845,
+        "recall@1": 0.843,
         "recall@3": 0.981,
         "recall@5": 1.0,
         "mrr": 1.0
@@ -195,13 +195,13 @@
   },
   "citations": {
     "gold_citation_precision": 1.0,
-    "gold_citations_checked": 99,
+    "gold_citations_checked": 98,
     "wrong_citations": [],
     "finding_citation_coverage": 1.0,
-    "verifier_claims": 128,
+    "verifier_claims": 127,
     "verifier_supported_rate": 1.0,
     "verifier_counts": {
-      "SUPPORTED": 128,
+      "SUPPORTED": 127,
       "UNSUPPORTED": 0,
       "CONTRADICTED": 0
     }
@@ -209,14 +209,14 @@
   "controls": {
     "by_type": {
       "wrong_chunk": {
-        "injected": 102,
-        "detected": 102,
+        "injected": 101,
+        "detected": 101,
         "missed": [],
         "detection_rate": 1.0
       },
       "wrong_number": {
-        "injected": 65,
-        "detected": 65,
+        "injected": 64,
+        "detected": 64,
         "missed": [],
         "detection_rate": 1.0
       },
@@ -233,8 +233,8 @@
         "detection_rate": 1.0
       }
     },
-    "injected": 214,
-    "detected": 214,
+    "injected": 212,
+    "detected": 212,
     "detection_rate": 1.0
   },
   "abstention": {
@@ -249,13 +249,13 @@
   },
   "reproducibility": {
     "identical": true,
-    "sha256_run1": "bfddd3ff0fb79dbc72d70a6e393e088eab82a6185d398db5da525cb483ec6a7e",
-    "sha256_run2": "bfddd3ff0fb79dbc72d70a6e393e088eab82a6185d398db5da525cb483ec6a7e"
+    "sha256_run1": "0410199a9dd9c136243b94115beb547b4782bc20a6215ef47b7533e7efdeb1b3",
+    "sha256_run2": "0410199a9dd9c136243b94115beb547b4782bc20a6215ef47b7533e7efdeb1b3"
   },
   "latency_ms": {
-    "p50": 1716.317500002333,
-    "p95": 5047.975900000893,
-    "mean": 1939.434238461567
+    "p50": 1677.7387999900384,
+    "p95": 5280.538399994839,
+    "mean": 1942.917157692696
   },
   "environment": {
     "python": "3.13.9",
@@ -287,7 +287,7 @@
       "primary_dimensions": [
         "category_sub_limits"
       ],
-      "latency_ms": 8874.0
+      "latency_ms": 8573.4
     },
     {
       "case_id": "PUB-002",
@@ -307,7 +307,7 @@
       "primary_dimensions": [
         "initial_waiting_period"
       ],
-      "latency_ms": 1449.3
+      "latency_ms": 1333.1
     },
     {
       "case_id": "PUB-003",
@@ -327,7 +327,7 @@
       "primary_dimensions": [
         "pre_existing_disease_waiting_period"
       ],
-      "latency_ms": 2826.8
+      "latency_ms": 3057.4
     },
     {
       "case_id": "PUB-004",
@@ -348,7 +348,7 @@
         "domiciliary_treatment_conditions",
         "category_sub_limits"
       ],
-      "latency_ms": 2979.7
+      "latency_ms": 3313.1
     },
     {
       "case_id": "PUB-005",
@@ -368,7 +368,7 @@
       "primary_dimensions": [
         "day_care_less_than_24h"
       ],
-      "latency_ms": 5048.0
+      "latency_ms": 5280.5
     },
     {
       "case_id": "PUB-006",
@@ -388,7 +388,7 @@
       "primary_dimensions": [
         "hospital_definition"
       ],
-      "latency_ms": 1446.9
+      "latency_ms": 1414.2
     },
     {
       "case_id": "PUB-007",
@@ -408,7 +408,7 @@
       "primary_dimensions": [
         "category_sub_limits"
       ],
-      "latency_ms": 1748.5
+      "latency_ms": 1760.4
     },
     {
       "case_id": "PUB-008",
@@ -428,7 +428,7 @@
       "primary_dimensions": [
         "cosmetic_exclusion"
       ],
-      "latency_ms": 3478.1
+      "latency_ms": 3479.7
     },
     {
       "case_id": "PUB-009",
@@ -448,7 +448,7 @@
       "primary_dimensions": [
         "pre_post_hospitalization_window"
       ],
-      "latency_ms": 5.0
+      "latency_ms": 4.1
     },
     {
       "case_id": "PUB-010",
@@ -468,7 +468,7 @@
       "primary_dimensions": [
         "named_disease_first_year_waiting_period"
       ],
-      "latency_ms": 5.0
+      "latency_ms": 3.1
     },
     {
       "case_id": "PUB-011",
@@ -488,7 +488,7 @@
       "primary_dimensions": [
         "hospital_definition"
       ],
-      "latency_ms": 4.4
+      "latency_ms": 2.9
     },
     {
       "case_id": "PUB-012",
@@ -508,7 +508,7 @@
       "primary_dimensions": [
         "experimental_unproven_treatment"
       ],
-      "latency_ms": 2649.2
+      "latency_ms": 2504.9
     },
     {
       "case_id": "CUST-001",
@@ -528,7 +528,7 @@
       "primary_dimensions": [
         "named_disease_first_year_waiting_period"
       ],
-      "latency_ms": 1804.7
+      "latency_ms": 1820.5
     },
     {
       "case_id": "CUST-002",
@@ -548,7 +548,7 @@
       "primary_dimensions": [
         "named_disease_first_year_waiting_period"
       ],
-      "latency_ms": 1772.1
+      "latency_ms": 1749.4
     },
     {
       "case_id": "CUST-003",
@@ -569,7 +569,7 @@
         "pre_post_hospitalization_window",
         "category_sub_limits"
       ],
-      "latency_ms": 1711.7
+      "latency_ms": 1677.7
     },
     {
       "case_id": "CUST-004",
@@ -580,8 +580,8 @@
       "expected_deduction_inr": 8000,
       "actual_deduction_inr": 8000.0,
       "estimated_payable_inr": 129800.0,
-      "claims_total": 7,
-      "claims_supported": 7,
+      "claims_total": 6,
+      "claims_supported": 6,
       "validation_status": "PASS",
       "attempts": 1,
       "n_assumptions": 5,
@@ -589,7 +589,7 @@
       "primary_dimensions": [
         "category_sub_limits"
       ],
-      "latency_ms": 1726.3
+      "latency_ms": 1744.7
     },
     {
       "case_id": "CUST-005",
@@ -609,7 +609,7 @@
       "primary_dimensions": [
         "experimental_unproven_treatment"
       ],
-      "latency_ms": 1814.4
+      "latency_ms": 1785.7
     },
     {
       "case_id": "CUST-006",
@@ -630,7 +630,7 @@
         "domiciliary_treatment_conditions",
         "unmodelled_policy_risk"
       ],
-      "latency_ms": 1137.0
+      "latency_ms": 1156.5
     },
     {
       "case_id": "CUST-007",
@@ -650,7 +650,7 @@
       "primary_dimensions": [
         "pre_existing_disease_waiting_period"
       ],
-      "latency_ms": 1807.0
+      "latency_ms": 1715.9
     },
     {
       "case_id": "CUST-008",
@@ -690,7 +690,7 @@
       "primary_dimensions": [
         "unmodelled_policy_risk"
       ],
-      "latency_ms": 1546.4
+      "latency_ms": 1537.5
     },
     {
       "case_id": "CUST-010",
@@ -710,7 +710,7 @@
       "primary_dimensions": [
         "day_care_less_than_24h"
       ],
-      "latency_ms": 1746.3
+      "latency_ms": 1804.8
     },
     {
       "case_id": "CUST-011",
@@ -731,7 +731,7 @@
         "initial_waiting_period",
         "cosmetic_exclusion"
       ],
-      "latency_ms": 1464.4
+      "latency_ms": 1488.8
     },
     {
       "case_id": "CUST-012",
@@ -751,7 +751,7 @@
       "primary_dimensions": [
         "cosmetic_exclusion"
       ],
-      "latency_ms": 3.6
+      "latency_ms": 3.1
     },
     {
       "case_id": "CUST-013",
@@ -771,7 +771,7 @@
       "primary_dimensions": [
         "category_sub_limits"
       ],
-      "latency_ms": 1716.3
+      "latency_ms": 1643.0
     },
     {
       "case_id": "CUST-014",
@@ -791,7 +791,7 @@
       "primary_dimensions": [
         "named_disease_first_year_waiting_period"
       ],
-      "latency_ms": 3.3
+      "latency_ms": 4.7
     }
   ]
 }

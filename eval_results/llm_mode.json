@@ -1,0 +1,542 @@
+{
+  "summary": {
+    "model": "gemini-3.5-flash",
+    "n_labeled": 26,
+    "n_adversarial": 3,
+    "labeled_accuracy_deterministic": 1.0,
+    "labeled_accuracy_with_llm": 0.962,
+    "false_alarms": [
+      "PUB-004"
+    ],
+    "false_alarm_rate_on_decisive_cases": 0.056,
+    "moved_to_a_different_decisive_outcome": [],
+    "adversarial_deterministic_needs_review": 0,
+    "adversarial_with_llm_needs_review": 3,
+    "observations_accepted": 11,
+    "observations_rejected": 7,
+    "validation_failures": []
+  },
+  "cases": [
+    {
+      "case_id": "PUB-001",
+      "adversarial": false,
+      "expected": "ADMISSIBLE_WITH_LIMITS",
+      "deterministic": "ADMISSIBLE_WITH_LIMITS",
+      "with_llm": "ADMISSIBLE_WITH_LIMITS",
+      "changed": false,
+      "accepted": [],
+      "rejected": [],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 7817
+    },
+    {
+      "case_id": "PUB-002",
+      "adversarial": false,
+      "expected": "NOT_ADMISSIBLE",
+      "deterministic": "NOT_ADMISSIBLE",
+      "with_llm": "NOT_ADMISSIBLE",
+      "changed": false,
+      "accepted": [
+        {
+          "chunk_id": "what_we_exclude-020",
+          "type": "exclusion_risk",
+          "case_field": "diagnosis",
+          "case_span": "Viral fever",
+          "clause_term": "Pyrexia",
+          "quote": "Pyrexia of unknown origin for less than 15 days",
+          "concern": "Viral fever is a form of pyrexia (fever), which may be excluded under this clause if it is classified as pyrexia of unknown origin."
+        }
+      ],
+      "rejected": [],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 16599
+    },
+    {
+      "case_id": "PUB-003",
+      "adversarial": false,
+      "expected": "NOT_ADMISSIBLE",
+      "deterministic": "NOT_ADMISSIBLE",
+      "with_llm": "NOT_ADMISSIBLE",
+      "changed": false,
+      "accepted": [],
+      "rejected": [],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 7660
+    },
+    {
+      "case_id": "PUB-004",
+      "adversarial": false,
+      "expected": "ADMISSIBLE_WITH_LIMITS",
+      "deterministic": "ADMISSIBLE_WITH_LIMITS",
+      "with_llm": "NEEDS_REVIEW",
+      "changed": true,
+      "accepted": [
+        {
+          "chunk_id": "what_we_exclude-017",
+          "type": "exclusion_risk",
+          "case_field": "treatment_type",
+          "case_span": "domiciliary",
+          "clause_term": "Domiciliary Hospitalisation",
+          "quote": "Any expense under Domiciliary Hospitalisation for",
+          "concern": "The claim is for domiciliary treatment, which may be subject to exclusions under the Domiciliary Hospitalisation clause."
+        }
+      ],
+      "rejected": [
+        {
+          "chunk_id": "what_we_exclude-016",
+          "reason": "bridge is made only of generic words"
+        }
+      ],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 11404
+    },
+    {
+      "case_id": "PUB-005",
+      "adversarial": false,
+      "expected": "ADMISSIBLE",
+      "deterministic": "ADMISSIBLE",
+      "with_llm": "ADMISSIBLE",
+      "changed": false,
+      "accepted": [],
+      "rejected": [
+        {
+          "chunk_id": "what_we_exclude-019",
+          "reason": "bridge is made only of generic words"
+        }
+      ],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 11113
+    },
+    {
+      "case_id": "PUB-006",
+      "adversarial": false,
+      "expected": "NEEDS_REVIEW",
+      "deterministic": "NEEDS_REVIEW",
+      "with_llm": "NEEDS_REVIEW",
+      "changed": false,
+      "accepted": [],
+      "rejected": [],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 8783
+    },
+    {
+      "case_id": "PUB-007",
+      "adversarial": false,
+      "expected": "ADMISSIBLE_WITH_LIMITS",
+      "deterministic": "ADMISSIBLE_WITH_LIMITS",
+      "with_llm": "ADMISSIBLE_WITH_LIMITS",
+      "changed": false,
+      "accepted": [],
+      "rejected": [],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 9741
+    },
+    {
+      "case_id": "PUB-008",
+      "adversarial": false,
+      "expected": "NOT_ADMISSIBLE",
+      "deterministic": "NOT_ADMISSIBLE",
+      "with_llm": "NOT_ADMISSIBLE",
+      "changed": false,
+      "accepted": [],
+      "rejected": [],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 7630
+    },
+    {
+      "case_id": "PUB-009",
+      "adversarial": false,
+      "expected": "ADMISSIBLE",
+      "deterministic": "ADMISSIBLE",
+      "with_llm": "ADMISSIBLE",
+      "changed": false,
+      "accepted": [],
+      "rejected": [],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 8904
+    },
+    {
+      "case_id": "PUB-010",
+      "adversarial": false,
+      "expected": "ADMISSIBLE",
+      "deterministic": "ADMISSIBLE",
+      "with_llm": "ADMISSIBLE",
+      "changed": false,
+      "accepted": [],
+      "rejected": [
+        {
+          "chunk_id": "what_we_exclude-019",
+          "reason": "bridge is made only of generic words"
+        }
+      ],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 10368
+    },
+    {
+      "case_id": "PUB-011",
+      "adversarial": false,
+      "expected": "NEEDS_REVIEW",
+      "deterministic": "NEEDS_REVIEW",
+      "with_llm": "NEEDS_REVIEW",
+      "changed": false,
+      "accepted": [],
+      "rejected": [],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 7299
+    },
+    {
+      "case_id": "PUB-012",
+      "adversarial": false,
+      "expected": "NEEDS_REVIEW",
+      "deterministic": "NEEDS_REVIEW",
+      "with_llm": "NEEDS_REVIEW",
+      "changed": false,
+      "accepted": [
+        {
+          "chunk_id": "what_we_exclude-014",
+          "type": "exclusion_risk",
+          "case_field": "procedure",
+          "case_span": "Experimental therapy",
+          "clause_term": "treatments not approved by Indian Medical council",
+          "quote": "Any expense on Naturopathy, non-allopathic treatment and/or any treatments not approved by Indian Medical council.",
+          "concern": "The claimant underwent an experimental therapy, which may be excluded as a treatment not approved by the Indian Medical Council."
+        }
+      ],
+      "rejected": [],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 9755
+    },
+    {
+      "case_id": "CUST-001",
+      "adversarial": false,
+      "expected": "NOT_ADMISSIBLE",
+      "deterministic": "NOT_ADMISSIBLE",
+      "with_llm": "NOT_ADMISSIBLE",
+      "changed": false,
+      "accepted": [],
+      "rejected": [
+        {
+          "chunk_id": "what_we_exclude-019",
+          "reason": "bridge is made only of generic words"
+        }
+      ],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 12343
+    },
+    {
+      "case_id": "CUST-002",
+      "adversarial": false,
+      "expected": "ADMISSIBLE",
+      "deterministic": "ADMISSIBLE",
+      "with_llm": "ADMISSIBLE",
+      "changed": false,
+      "accepted": [],
+      "rejected": [],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 8315
+    },
+    {
+      "case_id": "CUST-003",
+      "adversarial": false,
+      "expected": "PARTIALLY_ADMISSIBLE",
+      "deterministic": "PARTIALLY_ADMISSIBLE",
+      "with_llm": "PARTIALLY_ADMISSIBLE",
+      "changed": false,
+      "accepted": [],
+      "rejected": [],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 6685
+    },
+    {
+      "case_id": "CUST-004",
+      "adversarial": false,
+      "expected": "ADMISSIBLE_WITH_LIMITS",
+      "deterministic": "ADMISSIBLE_WITH_LIMITS",
+      "with_llm": "ADMISSIBLE_WITH_LIMITS",
+      "changed": false,
+      "accepted": [],
+      "rejected": [],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 11427
+    },
+    {
+      "case_id": "CUST-005",
+      "adversarial": false,
+      "expected": "NEEDS_REVIEW",
+      "deterministic": "NEEDS_REVIEW",
+      "with_llm": "NEEDS_REVIEW",
+      "changed": false,
+      "accepted": [
+        {
+          "chunk_id": "what_we_exclude-003",
+          "type": "exclusion_risk",
+          "case_field": "diagnosis",
+          "case_span": "Degenerative joint disease",
+          "clause_term": "Arthritis",
+          "quote": "vi) Arthritis, Gout, Rheumatism",
+          "concern": "Degenerative joint disease is a form of arthritis, which is subject to a waiting period under this clause."
+        },
+        {
+          "chunk_id": "what_we_exclude-020",
+          "type": "exclusion_risk",
+          "case_field": "diagnosis",
+          "case_span": "Degenerative joint disease",
+          "clause_term": "Arthritis",
+          "quote": "xii) Arthritis, Gout and Rheumatism",
+          "concern": "Degenerative joint disease is a form of arthritis, which is listed as an excluded disease under this clause."
+        }
+      ],
+      "rejected": [],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 8694
+    },
+    {
+      "case_id": "CUST-006",
+      "adversarial": false,
+      "expected": "NEEDS_REVIEW",
+      "deterministic": "NEEDS_REVIEW",
+      "with_llm": "NEEDS_REVIEW",
+      "changed": false,
+      "accepted": [
+        {
+          "chunk_id": "what_we_exclude-016",
+          "type": "exclusion_risk",
+          "case_field": "diagnosis",
+          "case_span": "Severe bronchial asthma exacerbation",
+          "clause_term": "bronchial asthamatic condition",
+          "quote": "External medical equipment of any kind used at home as post hospitalisation care like wheelchairs, crutches, instruments used in treatment of sleep apnea syndrome (C.P.A.P) or continuous peritoneal ambulatory dialysis (C.P.A.D) and oxygen concentrator for bronchial asthamatic condition, etc.",
+          "concern": "The diagnosis of severe bronchial asthma exacerbation matches the clause's exclusion of external medical equipment used at home, such as an oxygen concentrator, for a bronchial asthmatic condition."
+        }
+      ],
+      "rejected": [],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 10941
+    },
+    {
+      "case_id": "CUST-007",
+      "adversarial": false,
+      "expected": "ADMISSIBLE",
+      "deterministic": "ADMISSIBLE",
+      "with_llm": "ADMISSIBLE",
+      "changed": false,
+      "accepted": [],
+      "rejected": [],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 11682
+    },
+    {
+      "case_id": "CUST-008",
+      "adversarial": false,
+      "expected": "NEEDS_REVIEW",
+      "deterministic": "NEEDS_REVIEW",
+      "with_llm": "NEEDS_REVIEW",
+      "changed": false,
+      "accepted": [
+        {
+          "chunk_id": "what_we_exclude-020",
+          "type": "exclusion_risk",
+          "case_field": "procedure",
+          "case_span": "Extraction of molars under general anaesthesia",
+          "clause_term": "Dental Treatment or Surgery",
+          "quote": "xiii) Dental Treatment or Surgery",
+          "concern": "The procedure involves the extraction of molars, which is classified as dental treatment or surgery and is excluded under this clause."
+        }
+      ],
+      "rejected": [],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 8752
+    },
+    {
+      "case_id": "CUST-009",
+      "adversarial": false,
+      "expected": "NEEDS_REVIEW",
+      "deterministic": "NEEDS_REVIEW",
+      "with_llm": "NEEDS_REVIEW",
+      "changed": false,
+      "accepted": [],
+      "rejected": [],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 16420
+    },
+    {
+      "case_id": "CUST-010",
+      "adversarial": false,
+      "expected": "NEEDS_REVIEW",
+      "deterministic": "NEEDS_REVIEW",
+      "with_llm": "NEEDS_REVIEW",
+      "changed": false,
+      "accepted": [
+        {
+          "chunk_id": "what_we_exclude-020",
+          "type": "exclusion_risk",
+          "case_field": "diagnosis",
+          "case_span": "Acute bronchospasm",
+          "clause_term": "Asthma",
+          "quote": "Treatment of following diseases: i) Asthma",
+          "concern": "The diagnosis of 'Acute bronchospasm' is a clinical manifestation of 'Asthma', which is excluded from coverage."
+        }
+      ],
+      "rejected": [
+        {
+          "chunk_id": "what_we_exclude-019",
+          "reason": "bridge is made only of generic words"
+        }
+      ],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 13946
+    },
+    {
+      "case_id": "CUST-011",
+      "adversarial": false,
+      "expected": "NOT_ADMISSIBLE",
+      "deterministic": "NOT_ADMISSIBLE",
+      "with_llm": "NOT_ADMISSIBLE",
+      "changed": false,
+      "accepted": [],
+      "rejected": [],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 8211
+    },
+    {
+      "case_id": "CUST-012",
+      "adversarial": false,
+      "expected": "NOT_ADMISSIBLE",
+      "deterministic": "NOT_ADMISSIBLE",
+      "with_llm": "NOT_ADMISSIBLE",
+      "changed": false,
+      "accepted": [],
+      "rejected": [],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 8112
+    },
+    {
+      "case_id": "CUST-013",
+      "adversarial": false,
+      "expected": "ADMISSIBLE_WITH_LIMITS",
+      "deterministic": "ADMISSIBLE_WITH_LIMITS",
+      "with_llm": "ADMISSIBLE_WITH_LIMITS",
+      "changed": false,
+      "accepted": [],
+      "rejected": [
+        {
+          "chunk_id": "what_we_exclude-019",
+          "reason": "bridge is made only of generic words"
+        }
+      ],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 10601
+    },
+    {
+      "case_id": "CUST-014",
+      "adversarial": false,
+      "expected": "NOT_ADMISSIBLE",
+      "deterministic": "NOT_ADMISSIBLE",
+      "with_llm": "NOT_ADMISSIBLE",
+      "changed": false,
+      "accepted": [],
+      "rejected": [
+        {
+          "chunk_id": "what_we_exclude-019",
+          "reason": "bridge is made only of generic words"
+        }
+      ],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 9089
+    },
+    {
+      "case_id": "ADV-001",
+      "adversarial": true,
+      "expected": "NEEDS_REVIEW",
+      "deterministic": "ADMISSIBLE",
+      "with_llm": "NEEDS_REVIEW",
+      "changed": true,
+      "accepted": [
+        {
+          "chunk_id": "what_we_exclude-003",
+          "type": "exclusion_risk",
+          "case_field": "diagnosis",
+          "case_span": "Age-related clouding of the crystalline body of both eyes",
+          "clause_term": "Cataract",
+          "quote": "Hospitalization expense incurred in the first year of operation of the insurance cover on treatment of the following Diseases: i) Cataract",
+          "concern": "The diagnosis of age-related clouding of the crystalline body of both eyes is a medical description of a cataract, which is subject to a first-year waiting period exclusion."
+        }
+      ],
+      "rejected": [],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 9994
+    },
+    {
+      "case_id": "ADV-002",
+      "adversarial": true,
+      "expected": "NEEDS_REVIEW",
+      "deterministic": "ADMISSIBLE",
+      "with_llm": "NEEDS_REVIEW",
+      "changed": true,
+      "accepted": [
+        {
+          "chunk_id": "what_we_exclude-003",
+          "type": "exclusion_risk",
+          "case_field": "diagnosis",
+          "case_span": "Symptomatic gallstones",
+          "clause_term": "Stone in the urinary and biliary systems",
+          "quote": "ix) Stone in the urinary and biliary systems",
+          "concern": "The diagnosis of symptomatic gallstones falls under the category of stones in the biliary system, which is excluded from coverage during the first year of the policy."
+        }
+      ],
+      "rejected": [],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 9912
+    },
+    {
+      "case_id": "ADV-003",
+      "adversarial": true,
+      "expected": "NEEDS_REVIEW",
+      "deterministic": "ADMISSIBLE",
+      "with_llm": "NEEDS_REVIEW",
+      "changed": true,
+      "accepted": [
+        {
+          "chunk_id": "what_we_exclude-017",
+          "type": "exclusion_risk",
+          "case_field": "treatment_type",
+          "case_span": "domiciliary",
+          "clause_term": "Domiciliary Hospitalisation",
+          "quote": "Any expense under Domiciliary Hospitalisation for",
+          "concern": "The treatment is domiciliary, which may be subject to exclusions or limitations under the Domiciliary Hospitalisation clause."
+        }
+      ],
+      "rejected": [],
+      "error": null,
+      "validation": "PASS",
+      "latency_ms": 8387
+    }
+  ]
+}

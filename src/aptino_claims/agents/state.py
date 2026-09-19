@@ -59,6 +59,7 @@ class Finding(BaseModel):
     citations: list[Citation] = Field(default_factory=list)
     confidence: float = 0.5
     assumptions: list[str] = Field(default_factory=list)
+    source: Literal["rules", "llm"] = "rules"
 
 
 class ApplicableLimit(BaseModel):
@@ -147,6 +148,7 @@ class CaseState(BaseModel):
     confidence: float = 0.0
     rationale: str = ""
     rationale_source: str = "template"
+    llm_interpretation: dict[str, Any] = Field(default_factory=lambda: {"enabled": False})
 
     validation: ValidationOutcome | None = None
     trace: list[TraceEvent] = Field(default_factory=list)
@@ -207,6 +209,7 @@ class CaseState(BaseModel):
         self.confidence = 0.0
         self.rationale = ""
         self.validation = None
+        self.llm_interpretation = {"enabled": False}
 
     # -- projections ----------------------------------------------------------
     def all_citations(self) -> list[Citation]:
@@ -262,6 +265,7 @@ class CaseState(BaseModel):
                     "applicable": f.applicable,
                     "chunk_ids": [c.chunk_id for c in f.citations],
                     "assumptions": f.assumptions,
+                    "source": f.source,
                 }
                 for f in self.findings
             ],
@@ -283,6 +287,7 @@ class CaseState(BaseModel):
             "validation": validation,
             "rationale": self.rationale,
             "rationale_source": self.rationale_source,
+            "llm_interpretation": self.llm_interpretation,
             "trace": [t.model_dump() for t in self.trace],
             "handoffs": [h.model_dump() for h in self.handoffs],
         }

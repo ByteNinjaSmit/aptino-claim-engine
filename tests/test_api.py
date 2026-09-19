@@ -60,3 +60,28 @@ def test_analyze_tolerates_unknown_fields(client):
     }
     resp = client.post("/analyze", json=case)
     assert resp.status_code == 200
+
+
+def test_llm_interpretation_is_opt_in_per_request(client, monkeypatch):
+    import json
+    from aptino_claims.api import main
+
+    calls = []
+
+    class SpyLLM:
+        def interpret(self, system, user):
+            calls.append(1)
+            return json.dumps({"observations": []})
+
+        def generate_rationale(self, prompt):
+            return None
+
+    case = {"case_id": "OPT-1", "policy_start_date": "2024-01-01", "claim_date": "2026-01-01", "sum_insured_inr": 500000,
+            "continuous_coverage_months": 24, "hospital": {"name": "H", "network_provider": True},
+            "treatment": {"type": "inpatient", "admission_hours": 96, "diagnosis": "Acute appendicitis", "procedure": "Appendectomy"},
+            "expenses_inr": {"room": 10000, "doctor_fees": 10000, "medicines_diagnostics": 20000}}
+    monkeypatch.setitem(main._state, "llm", SpyLLM())
+    off = client.post("/analyze", json=case).json()
+    assert calls == [] and off["llm_interpretation"] == {"enabled": False}
+    on = client.post("/analyze?llm_interpretation=true", json=case).json()
+    assert calls == [1] and on["llm_interpretation"]["enabled"] and on["llm_interpretation"]["accepted"] == []

@@ -168,6 +168,32 @@ validation. If it still fails, the decision is downgraded to `NEEDS_REVIEW`.
 The loop, the reason for it, and each agent's reads/writes are recorded on
 the state and shown in the UI's *Agent workflow* tab.
 
+## 6a. Optional LLM interpretation
+
+The rules cannot recognise a paraphrase they were not written for
+("symptomatic gallstones" for "stone in the biliary system"). An optional step
+in the Coverage & Exclusion Agent (`agents/llm_interpretation.py`, off by
+default, per request or `LLM_INTERPRETATION=on`) lets a model read the full
+exclusions list and flag such a clause. It is the one place an LLM does
+interpretation rather than phrasing, so it is constrained rather than trusted:
+
+- **Grounded**: it may cite only the exclusion chunks it was shown; every
+  observation needs a verbatim quote, a `case_span` copied from the case and a
+  `clause_term` copied from the clause; generic-word bridges are rejected; the
+  Validation Agent re-verifies the quote (`quote` assertion).
+- **One-directional**: an accepted observation is an INSUFFICIENT_EVIDENCE
+  finding, so it can only move a case toward NEEDS_REVIEW; it cannot approve,
+  reject or change an amount. Case text is passed to the model as data, and a
+  hostile instruction inside it can at worst cause an abstention.
+- **Scoped**: no opinions on durations, dates, amounts or sub-limits.
+- **Measured, not assumed**: `eval/run_llm_mode.py` runs every case with and
+  without the step against a real model (README table; `eval_results/llm_mode.md`).
+  It is only net-positive with a capable model; a weak model produced 7 false
+  alarms in 18 decisive cases, which is why the step is opt-in.
+
+A grounded quote proves the text exists, not that the reasoning is right, so
+the step never decides: it hands the reviewer the clause and the bridge.
+
 ## 6. Unknown policy dimension (safety net)
 
 The ten modelled dimensions cannot cover every rule in a policy. The policy
@@ -219,9 +245,10 @@ record. Reviews are client-side; the API is stateless.
   arithmetic, the absence scan over the whole policy, the decision-consistency
   rules and the fault-injection controls that measure them.
 - **Keyword-driven applicability.** Named-disease, day-care and cosmetic checks
-  match literal terms ("cataract", "cosmetic"); a paraphrase such as
-  "phacoemulsification" would not trigger the first-year wait. The unknown-
-  dimension check is a partial safety net, not a substitute for coverage.
+  match terms at word start ("cataract", "cosmetic"); a paraphrase such as
+  "phacoemulsification" does not trigger the first-year wait in the deterministic
+  pipeline (ADV-001..003 measure this). The optional LLM step catches these in
+  testing, at a measured false-alarm cost, and is off by default.
 - **PUB-004 (domiciliary).** Exclusion items 18-20 restrict domiciliary
   treatment (including "any treatment not exceeding three days"); the case
   states no duration, and the system does not abstain on that.

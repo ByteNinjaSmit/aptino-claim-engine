@@ -30,6 +30,12 @@ class Settings:
         default_factory=lambda: os.getenv("OPENAI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai")
     )
     openai_model: str = field(default_factory=lambda: os.getenv("OPENAI_MODEL", "gemini-2.5-flash-lite"))
+    openai_interpretation_model: str = field(
+        default_factory=lambda: os.getenv("OPENAI_INTERPRETATION_MODEL") or os.getenv("OPENAI_MODEL", "gemini-2.5-flash-lite")
+    )
+    llm_interpretation: bool = field(
+        default_factory=lambda: os.getenv("LLM_INTERPRETATION", "off").strip().lower() in ("on", "true", "1", "yes")
+    )
 
     policy_pdf_path: Path = field(
         default_factory=lambda: _path(

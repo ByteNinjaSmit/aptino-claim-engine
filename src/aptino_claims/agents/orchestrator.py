@@ -24,13 +24,13 @@ from .state import CaseState
 MAX_ATTEMPTS = 2
 
 
-def analyze_case(raw_case: dict, retriever: HybridRetriever, llm: LLMClient) -> CaseState:
+def analyze_case(raw_case: dict, retriever: HybridRetriever, llm: LLMClient, interpret: bool | None = None) -> CaseState:
     state = CaseState(case_id=str(raw_case.get("case_id", "UNKNOWN")), raw_case=raw_case)
     state = case_analysis_agent.run(state)
 
     while True:
         state = policy_evidence_agent.run(state, retriever)
-        state = coverage_exclusion_agent.run(state)
+        state = coverage_exclusion_agent.run(state, llm, interpret, retriever)
         state = decision_agent.run(state, llm)
         last_chance = state.attempt >= MAX_ATTEMPTS
         state = validation_agent.run(state, retriever, final_attempt=last_chance)

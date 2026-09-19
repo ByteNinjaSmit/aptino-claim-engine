@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
@@ -67,12 +67,14 @@ async def health() -> HealthOut:
 
 
 @app.post("/analyze")
-async def analyze(case: ClaimCaseIn) -> dict:
+async def analyze(case: ClaimCaseIn, llm_interpretation: bool = Query(
+        default=False, description="Also run the optional LLM interpretation step (needs a configured LLM provider; slower)."),
+) -> dict:
     retriever: HybridRetriever | None = _state.get("retriever")
     if retriever is None:
         raise HTTPException(status_code=503, detail="Retrieval index is still initializing; retry shortly.")
     try:
-        state = analyze_case(case.model_dump(), retriever, _state["llm"])
+        state = analyze_case(case.model_dump(), retriever, _state["llm"], interpret=True if llm_interpretation else None)
     except Exception as exc:  # defensive: never let a case-specific failure surface a stack trace
         logger.exception("Analysis failed for case %s", case.case_id)
         raise HTTPException(status_code=500, detail=f"Internal error while analyzing case {case.case_id}.") from exc

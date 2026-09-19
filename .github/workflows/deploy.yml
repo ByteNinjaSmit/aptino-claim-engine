@@ -72,17 +72,18 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
           LLM_PROVIDER: openai_compatible
           OPENAI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_INTERPRETATION_MODEL: gemini-3.5-flash
         with:
           host: ${{ secrets.SSH_HOST }}
           port: ${{ secrets.SSH_PORT }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: DOCKERHUB_USERNAME,DOCKERHUB_TOKEN,IMAGE_TAG,LLM_PROVIDER,OPENAI_API_KEY
+          envs: DOCKERHUB_USERNAME,DOCKERHUB_TOKEN,IMAGE_TAG,LLM_PROVIDER,OPENAI_API_KEY,OPENAI_INTERPRETATION_MODEL
           script_stop: true
           script: |
             cd aptino-claim
             echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
-            export DOCKERHUB_USERNAME IMAGE_TAG LLM_PROVIDER OPENAI_API_KEY
+            export DOCKERHUB_USERNAME IMAGE_TAG LLM_PROVIDER OPENAI_API_KEY OPENAI_INTERPRETATION_MODEL
             docker compose pull
             # --wait blocks until backend and frontend healthchecks pass
             # (first boot downloads the models, hence the long timeout).

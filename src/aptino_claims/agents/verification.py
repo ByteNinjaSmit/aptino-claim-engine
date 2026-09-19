@@ -170,6 +170,11 @@ def verify_assertion(assertion: dict | None, text: str, corpus: dict[str, str], 
         results = _check_limit(assertion, text)
     elif kind == "absence":
         results = _check_absence(assertion, text, corpus, chunk_id)
+    elif kind == "quote":
+        ok = _norm(assertion.get("quote", "")) in _norm(text) and bool(assertion.get("quote", "").strip())
+        results = [("SUPPORTED" if ok else "UNSUPPORTED",
+                    CheckResult(name="quoted text appears verbatim in the cited chunk", passed=ok,
+                                detail="" if ok else "the quote is not in the cited chunk"))]
     else:
         return "UNSUPPORTED", f"unknown assertion type {kind!r}", []
     if not results:

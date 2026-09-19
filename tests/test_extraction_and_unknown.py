@@ -51,3 +51,11 @@ def test_package_cap_only_applies_when_a_package_was_agreed():
     assert not any("package" in l.description for l in without)
     _, with_pkg, _ = dim._sublimits_eval({**base, "package_charges_agreed": True}, evidence)
     assert any("package" in l.description for l in with_pkg)
+
+
+def test_terms_match_at_word_start_not_inside_other_words():
+    assert dim.has_term("cholecystectomy for gallstones", "cyst") is False        # was a substring false positive
+    assert dim.has_term("multiple ovarian cysts", "cyst") is True
+    assert dim.has_term("bilateral tonsillectomy", "tonsil") is True
+    assert dim.has_term("d&c procedure", "d&c") is True
+    assert dim.has_term("non-cosmetic repair", "cosmetic") is True

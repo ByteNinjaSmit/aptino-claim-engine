@@ -50,6 +50,7 @@ DIMENSIONS = {
     "cosmetic_exclusion": ("Cosmetic treatment exclusion", "Is the treatment cosmetic or aesthetic?"),
     "experimental_unproven_treatment": ("Experimental / unproven treatment", "Is the treatment experimental, and does the policy exclude it?"),
     "category_sub_limits": ("Expense-category caps", "Do any caps reduce what is payable?"),
+    "llm_interpretation": ("LLM-flagged clause", "Did a language model spot an exclusion the rules do not model? (verified quote; it can only flag for review)"),
     "unmodelled_policy_risk": ("Policy rules not modelled", "Does the policy name this diagnosis in a specific rule the system does not evaluate?"),
 }
 
@@ -141,7 +142,8 @@ def load_json(path: str):
 
 def load_case_sources() -> dict[str, dict]:
     sources: dict[str, dict] = {}
-    for label, rel in (("public", "data/candidate_data/public_test_cases.json"), ("custom", "data/custom_cases/custom_test_cases.json")):
+    for label, rel in (("public", "data/candidate_data/public_test_cases.json"), ("custom", "data/custom_cases/custom_test_cases.json"),
+                       ("adversarial", "data/custom_cases/adversarial_cases.json")):
         p = REPO_ROOT / rel
         if p.exists():
             for c in load_json(str(p)):
@@ -161,8 +163,8 @@ def expected_for(case_id: str) -> str | None:
     return next((c["expected_decision"] for c in metrics["per_case"] if c["case_id"] == case_id), None)
 
 
-def call_api(api_url: str, case: dict) -> dict:
-    resp = requests.post(f"{api_url.rstrip('/')}/analyze", json=case, timeout=120)
+def call_api(api_url: str, case: dict, llm: bool = False) -> dict:
+    resp = requests.post(f"{api_url.rstrip('/')}/analyze", json=case, params={"llm_interpretation": "true"} if llm else None, timeout=240)
     resp.raise_for_status()
     return resp.json()
 
@@ -360,7 +362,7 @@ def render_checks(result: dict) -> None:
         s_label, s_color = STATUSES.get(f["status"], (f["status"], GREY))
         refs = "".join(f'<span class="chip">{esc(c)}</span>' for c in f.get("chunk_ids", []))
         st.markdown(
-            f'<div class="check" style="--c:{s_color}"><div style="float:right">{pill(s_label, s_color)}</div>'
+            f'<div class="check" style="--c:{s_color}"><div style="float:right">{pill("LLM", BLUE) if f.get("source") == "llm" else ""}{pill(s_label, s_color)}</div>'
             f'<div class="t">{esc(title)}</div><div class="q">{esc(question)}</div>'
             f'<div class="s">{esc(f["statement"])}</div>'
             + "".join(f'<div class="sub" style="margin-top:2px">Assumes: {esc(a)}</div>' for a in f.get("assumptions", []))
@@ -476,8 +478,11 @@ def _attention_items(result: dict) -> list[tuple[str, str, str]]:
             items.append((RED, f'{v["verdict"].title()} claim: {v["claim"]}', v["reason"]))
     for r in result.get("unmodelled_policy_risks", []):
         items.append((AMBER, "Policy rule the system does not model", r["statement"]))
+    for f in result.get("findings", []):
+        if f.get("source") == "llm" and f.get("applicable"):
+            items.append((AMBER, "LLM flagged a clause the rules do not model", f["statement"]))
     for m in result.get("missing_evidence", []):
-        if m["field"] != "unmodelled_policy_risk":  # already shown as its own item above
+        if m["field"] not in ("unmodelled_policy_risk", "llm_interpretation"):  # already shown as their own items above
             items.append((GREY, f'Missing evidence: {m["field"]}', m["reason"]))
     n_assume = len(result.get("assumptions", []))
     if n_assume:
@@ -486,6 +491,28 @@ def _attention_items(result: dict) -> list[tuple[str, str, str]]:
     if attempts > 1:
         items.append((BLUE, "Evidence was re-retrieved", "A first-pass citation failed verification; retrieval was widened and the answer recomputed."))
     return items
+
+
+def render_llm_section(result: dict) -> None:
+    r = result.get("llm_interpretation") or {"enabled": False}
+    st.markdown("##### LLM interpretation")
+    if not r.get("enabled"):
+        st.caption("Not run for this analysis. Tick the box under 'Run the analysis' to let a language model check the policy's exclusions for "
+                   "clauses the rules do not model. It can only add review flags, each backed by a verbatim quote.")
+        return
+    if r.get("error"):
+        st.warning(f"The step ran but produced nothing usable: {r['error']}")
+    acc, rej = r.get("accepted", []), r.get("rejected", [])
+    st.caption(f"{len(acc)} observation(s) passed verification, {len(rej)} discarded. Verification requires a chunk the model was shown, "
+               "a verbatim quote, a phrase copied from the case, a phrase copied from the clause, and a non-generic bridge between them.")
+    for a in acc:
+        st.markdown(f'<div class="check" style="--c:{AMBER}"><div style="float:right">{pill("LLM", BLUE)}{pill("quote verified", GREEN)}</div>'
+                    f'<div class="t">Case: &ldquo;{esc(a["case_span"])}&rdquo; &harr; policy: &ldquo;{esc(a["clause_term"])}&rdquo;</div>'
+                    f'<div class="q">{esc(a["chunk_id"])} | {esc(a["type"].replace("_", " "))}</div>'
+                    f'<div class="s">{esc(a["concern"])}</div><div class="quote">{esc(a["quote"])}</div></div>', unsafe_allow_html=True)
+    if rej:
+        with st.expander(f"{len(rej)} discarded observation(s) and why"):
+            st.table(pd.DataFrame([{"Chunk": x.get("chunk_id") or "-", "Reason": x["reason"]} for x in rej]))
 
 
 def render_reviewer_panel(result: dict, case: dict) -> None:
@@ -500,6 +527,8 @@ def render_reviewer_panel(result: dict, case: dict) -> None:
                     f'<div class="s">No unsupported or contradicted claim, and no unmodelled policy rule flagged.</div></div>', unsafe_allow_html=True)
     for color, title, detail in items:
         st.markdown(f'<div class="check" style="--c:{color}"><div class="t">{esc(title)}</div><div class="s">{esc(detail)}</div></div>', unsafe_allow_html=True)
+
+    render_llm_section(result)
 
     st.markdown("##### Claim audit: decision claim, citation, policy chunk, verdict")
     st.caption(f"{counts.get('SUPPORTED', 0)} supported, {counts.get('UNSUPPORTED', 0)} unsupported, {counts.get('CONTRADICTED', 0)} contradicted. "
@@ -596,10 +625,13 @@ with tab_analyze:
             st.json(case)
 
     st.subheader("2. Run the analysis")
+    use_llm = st.checkbox("Also run the LLM interpretation step (slower; can only add review flags)",
+                          help="A language model reads the policy's exclusions and may flag one the rules do not model, such as a paraphrased "
+                               "diagnosis. Each flag must quote the policy verbatim and is verified. It can never approve or reject a claim.")
     if st.button("Analyze claim", type="primary", disabled=case is None):
-        with st.spinner("Five agents are working on it..."):
+        with st.spinner("Five agents are working on it..." + (" (LLM interpretation on: this can take a while)" if use_llm else "")):
             try:
-                st.session_state["result"] = call_api(api_url, case)
+                st.session_state["result"] = call_api(api_url, case, use_llm)
                 st.session_state["result_case"] = case
             except requests.HTTPError as e:
                 st.session_state.pop("result", None)
@@ -688,6 +720,15 @@ with tab_how:
         "- **Supported:** the cited chunk contains what the claim asserts (for a limit: the same percentage, and the cap and deduction add up).\n"
         "- **Unsupported:** the chunk does not contain it, or it was never retrieved.\n"
         "- **Contradicted:** the chunk states a *different* figure, the arithmetic is wrong, or the final decision conflicts with its own findings.")
+
+    st.subheader("Optional: LLM interpretation")
+    st.markdown(
+        "The rules only fire on terms they were written for. When you tick the box, a language model reads the policy's full exclusions list "
+        "and may point out a clause that applies for reasons the rules do not encode (for example *gallstones* for *stone in the biliary system*). "
+        "Its output is treated as untrusted: it must name a phrase copied from the case and a phrase copied from the clause, quote the clause "
+        "verbatim, and pass verification, otherwise it is discarded. It **can only add a review flag**: it can never approve a claim, reject one "
+        "or change an amount, so even a hostile instruction hidden in a claim can at worst cause an abstention. Measured results are in the "
+        "repository (`eval_results/llm_mode.md`).")
 
     st.subheader("The eleven checks")
     st.table(pd.DataFrame([{"Check": t, "Question": q} for t, q in DIMENSIONS.values()]))

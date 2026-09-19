@@ -84,7 +84,7 @@ OPENAI_MODEL=gemini-2.5-flash-lite
 {"status": "ok", "chunk_count": 116, "llm_provider": "offline"}
 ```
 
-### `POST /analyze`
+### `POST /analyze` (optional query parameter `llm_interpretation=true`, see below)
 Request body — see `data/claim_case_schema.md` / `data/candidate_data/public_test_cases.json`
 for full examples; unknown/non-critical fields are tolerated, not rejected.
 
@@ -174,11 +174,53 @@ causes and fixes, and the "What this evaluation does not prove" section of
 | Decision accuracy | 26/26; 0 unsafe decisions |
 | Required abstentions (NEEDS_REVIEW) | 8/8 |
 | Payable-amount exact match | 11/11 |
-| Retrieval recall@5 / MRR (hybrid + rerank) | 1.00 / 1.00 (dense only: 0.98 / 0.82) |
-| Gold-citation precision | 100% of 99 citations |
-| Claims verified against cited chunk | 128/128 |
-| Fault injection detected | 214/214 |
+| Retrieval recall@5 / MRR (hybrid + rerank) | 1.00 / 1.00 (dense only: 0.98 / 0.81) |
+| Gold-citation precision | 100% of 98 citations |
+| Claims verified against cited chunk | 127/127 |
+| Fault injection detected | 212/212 |
 | Deterministic across two cold runs | yes |
+
+## LLM interpretation (optional)
+
+The rule-based checks only fire on terms they were written for. An optional
+step lets a language model read the policy's full **What We Exclude** list and
+flag a clause that applies for reasons the rules do not encode (a paraphrased
+diagnosis such as *gallstones* for *stone in the biliary system*, or a
+restriction scoped to one treatment mode). It is **off by default** and is
+enabled per request (`POST /analyze?llm_interpretation=true`, or the checkbox in
+the UI) or globally (`LLM_INTERPRETATION=on`); it needs `LLM_PROVIDER=openai_compatible`
+and uses `OPENAI_INTERPRETATION_MODEL` (default `gemini-3.5-flash`, a stronger
+model than the rationale writer).
+
+The model's output is treated as untrusted:
+
+- It may cite only the exclusion clauses it was shown, must **quote the clause
+  verbatim**, and must show its bridge in literal text: a `case_span` copied from
+  the case's diagnosis/procedure/treatment mode and a `clause_term` copied from
+  the clause. A bridge made only of generic words ("treatment" <-> "treatment")
+  is rejected. Each accepted quote is verified again by the Validation Agent.
+- It is **one-directional**: an accepted observation is an `INSUFFICIENT_EVIDENCE`
+  finding. It can push a case toward `NEEDS_REVIEW`; it can never approve a claim,
+  reject one, or change an amount. A hostile instruction hidden in a claim can
+  therefore at worst cause an abstention (unit-tested).
+- It has no opinion on durations, dates, amounts or sub-limits (those stay
+  deterministic), and any failure (no key, timeout, invalid JSON) leaves the
+  deterministic result untouched.
+
+Measured with a real model (`python -m aptino_claims.eval.run_llm_mode`, results in
+`eval_results/llm_mode.md`; not part of the deterministic gate because it needs an
+API key and model output can vary):
+
+| | `gemini-2.5-flash-lite` (first try) | `gemini-3.5-flash` (final) |
+|---|---|---|
+| Labeled cases unchanged (of 26) | 19 (73%) | 25 (96%) |
+| False alarms on decisive cases | 7 of 18 | 1 of 18 (PUB-004, a label the independent audit also questioned) |
+| Paraphrase cases the rules miss, caught (of 3) | 2, one for the wrong reason | 3, each with a correct bridge |
+| Moved to a different *decisive* outcome | 0 | 0 |
+
+So the step is only worth enabling with a capable model: the guards contain a weak
+model's mistakes (it can only add review flags) but cannot make it accurate. Cost:
+about 10 s median extra latency per analysis.
 
 ## 6. Tests
 

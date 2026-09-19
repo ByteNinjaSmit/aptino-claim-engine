@@ -34,6 +34,9 @@ open in the firewall.
 - Optional LLM rationale: set `LLM_PROVIDER`, `OPENAI_API_KEY`,
   `OPENAI_BASE_URL`, `OPENAI_MODEL` in a `.env` file next to the compose
   file on the VPS (never commit keys).
+- LLM interpretation is opt-in per request (`?llm_interpretation=true`, UI checkbox) and uses
+  `OPENAI_INTERPRETATION_MODEL` (the workflow sets `gemini-3.5-flash`). Set `LLM_INTERPRETATION=on`
+  in `~/aptino-claim/.env` on the VPS to run it on every request (adds ~10 s per analysis).
 - HTTPS: put Caddy/nginx in front if you need it.
 - Rollback: `IMAGE_TAG=<old-sha> DOCKERHUB_USERNAME=<user> docker compose up -d`
   in `~/aptino-claim` on the VPS.

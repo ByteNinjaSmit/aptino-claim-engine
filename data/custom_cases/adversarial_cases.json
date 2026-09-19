@@ -1,0 +1,117 @@
+[
+  {
+    "case_id": "ADV-001",
+    "policy_id": "USGIC-CSC-2017-2018",
+    "policy_start_date": "2026-04-01",
+    "claim_date": "2026-09-01",
+    "sum_insured_inr": 500000,
+    "continuous_coverage_months": 5,
+    "prior_insurer_continuous_years": 0,
+    "patient": {
+      "age": 58
+    },
+    "hospital": {
+      "name": "Metro Care Hospital",
+      "network_provider": true
+    },
+    "treatment": {
+      "type": "day_care",
+      "admission_hours": 6,
+      "diagnosis": "Age-related clouding of the crystalline body of both eyes",
+      "procedure": "Bilateral phacoemulsification with foldable intraocular insert",
+      "pre_existing": false,
+      "experimental": false
+    },
+    "expenses_inr": {
+      "room": 0,
+      "doctor_fees": 20000,
+      "medicines_diagnostics": 30000,
+      "pre_hospitalization": 0,
+      "post_hospitalization": 0,
+      "ambulance": 0
+    },
+    "documents": [
+      "claim_form",
+      "discharge_summary",
+      "itemized_bill"
+    ],
+    "task": "Paraphrase test: the diagnosis never says 'cataract' but names the same first-year-wait illness; no prior-insurer cover to waive the wait."
+  },
+  {
+    "case_id": "ADV-002",
+    "policy_id": "USGIC-CSC-2017-2018",
+    "policy_start_date": "2026-04-01",
+    "claim_date": "2026-09-01",
+    "sum_insured_inr": 500000,
+    "continuous_coverage_months": 5,
+    "prior_insurer_continuous_years": 0,
+    "patient": {
+      "age": 58
+    },
+    "hospital": {
+      "name": "Metro Care Hospital",
+      "network_provider": true
+    },
+    "treatment": {
+      "type": "inpatient",
+      "admission_hours": 72,
+      "diagnosis": "Symptomatic gallstones",
+      "procedure": "Laparoscopic cholecystectomy",
+      "pre_existing": false,
+      "experimental": false
+    },
+    "expenses_inr": {
+      "room": 9000,
+      "doctor_fees": 45000,
+      "medicines_diagnostics": 70000,
+      "pre_hospitalization": 0,
+      "post_hospitalization": 0,
+      "ambulance": 0
+    },
+    "documents": [
+      "claim_form",
+      "discharge_summary",
+      "itemized_bill"
+    ],
+    "task": "Paraphrase test: 'gallstones' is the same thing as the listed 'stone in the biliary system' (first-year wait); no prior-insurer cover."
+  },
+  {
+    "case_id": "ADV-003",
+    "policy_id": "USGIC-CSC-2017-2018",
+    "policy_start_date": "2024-02-01",
+    "claim_date": "2026-08-01",
+    "sum_insured_inr": 500000,
+    "continuous_coverage_months": 30,
+    "prior_insurer_continuous_years": 0,
+    "patient": {
+      "age": 58
+    },
+    "hospital": {
+      "name": "Metro Care Hospital",
+      "network_provider": true
+    },
+    "treatment": {
+      "type": "domiciliary",
+      "admission_hours": 0,
+      "diagnosis": "Chronic condition requiring home care",
+      "procedure": "Home nursing and medication",
+      "pre_existing": false,
+      "experimental": false,
+      "hospital_room_unavailable": true
+    },
+    "expenses_inr": {
+      "room": 0,
+      "doctor_fees": 15000,
+      "medicines_diagnostics": 40000,
+      "pre_hospitalization": 0,
+      "post_hospitalization": 0,
+      "ambulance": 0
+    },
+    "documents": [
+      "claim_form",
+      "discharge_summary",
+      "itemized_bill"
+    ],
+    "task": "Home treatment with room unavailable, but the case never says how long the treatment lasted; a domiciliary exclusion covers treatment not exceeding three days."
+  }
+]

@@ -1,8 +1,8 @@
 # Failure Analysis
 
-Eleven failures found during development, their root causes, and the fix applied. #1-#4 came from smoke-testing
+Fourteen failures found during development, their root causes, and the fix applied. #1-#4 came from smoke-testing
 the supplied cases; #5-#10 were found by the stronger evaluation (hand-derived payable amounts, the claim -> citation ->
-chunk verifier, new edge cases); #11 records limitations found by reading the policy closely. Fixed items are guarded by
+chunk verifier, new edge cases); #11 records limitations found by reading the policy closely; #12-#14 came from building and measuring the optional LLM step. Fixed items are guarded by
 unit tests and by gates in the evaluation, so they cannot silently regress.
 
 ## 1. Chunker: a 3-letter connector word was detected as a section heading
@@ -149,6 +149,28 @@ deductions are reserved for confirmed problems, not merely-optional gaps.
 
 - **Exclusion items 18-20 belong to item 17.** In the PDF, "17. Any expense under Domiciliary Hospitalisation for" is followed by items 18 (pre/post hospitalisation), 19 ("treatment not exceeding three days") and 20 (the disease list: asthma, bronchitis, diabetes, ...). Read together they restrict *domiciliary* treatment only. The chunker splits them into separate top-level items. The unknown-dimension check still surfaces item 20 for an asthma claim (CUST-006), but a re-chunk that keeps 17-20 together would model this correctly. Not done: the numbering is the only signal and a generic rule for it is fragile.
 - **The "Normal Room" limit is ambiguous.** The ICU clause says "per day"; the room clause does not. The system applies it per day of stay and says so in `assumptions` on every affected answer. If the insurer meant per stay, PUB-001's deduction would be INR 25,000, not INR 10,200.
+
+## 12. Keyword matching used substrings, not words
+
+**Found by**: building the paraphrase test cases for the LLM step (ADV-002, "symptomatic gallstones / laparoscopic cholecystectomy").
+
+**Symptom**: the case was rejected as a first-year named-disease claim, which is the right outcome but for the wrong reason: the keyword `cyst` matched *inside* "chole**cyst**ectomy".
+
+**Fix**: policy terms match at the start of a word (`dimensions.has_term`): "cyst" matches "cysts" but not "cholecystectomy". Covered by `test_terms_match_at_word_start_not_inside_other_words`. This removed one spurious claim from CUST-004 (127 claims verified instead of 128); no decision changed.
+
+## 13. The first LLM-interpretation design was net-negative with a weak model
+
+**Found by**: running the step against a real model (`eval/run_llm_mode.py`), which the unit tests with a scripted model could not reveal.
+
+**Symptom**: with `gemini-2.5-flash-lite`, labeled accuracy fell from 100% to 65% because the model flagged clauses that plainly did not apply: it re-raised sub-limits the rules already compute, called a 96-hour stay "unmet", and paired "inpatient" with "outpatient" and "Cancer" with "infertility".
+
+**Root causes / fixes, in order**: (a) it was shown retrieval-ranked chunks from every section, so it commented on definitions and limits: it is now shown the full exclusions list only and `limit_risk` was removed; (b) a self-reported `applies` flag did nothing (the model always answered "yes") and was dropped; (c) the model reasoned about durations, which is the rules' job: numeric fields were removed from its scope; (d) it now must show a **verbatim bridge** (`case_span` from the case, `clause_term` from the clause), and bridges made only of generic words are rejected. That moved the weak model to 73%; a stronger model (`gemini-3.5-flash`) reached 96% with 3/3 paraphrase catches. The remaining lesson is recorded in the README: the guards bound the damage but do not make a weak model accurate.
+
+## 14. A verbatim quote proves the text exists, not that the reasoning is right
+
+**Found by**: reading the accepted observations for the weak model: it "caught" ADV-002 by pairing *cholecystectomy* with *hysterectomy* (both "-ectomy"), and the quote check passed because the quote was genuine.
+
+**Consequence**: the quote/bridge verification guarantees grounding (no invented clauses or figures), not semantic correctness. That is why the step can only add review flags, and why its measured false-alarm rate is reported instead of assumed to be zero.
 
 ## Residual limitations (not failures, but worth naming)
 
